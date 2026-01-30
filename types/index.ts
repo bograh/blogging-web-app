@@ -25,7 +25,6 @@ export interface ProfilePost {
   id: number;
   title: string;
   body: string;
-  excerpt?: string;
   author: string;
   authorId: string;
   tags: string[];
@@ -59,7 +58,6 @@ export interface Post {
   id: number;
   title: string;
   body?: string;
-  excerpt?: string;
   authorId?: string;
   authorName?: string; // For list/detail endpoints
   author?: string | { username: string }; // For profile endpoint or GraphQL
@@ -75,7 +73,6 @@ export interface Post {
 export interface CreatePostRequest {
   title: string;
   body: string;
-  excerpt?: string;
   authorId: string;
   tags: string[];
 }
@@ -83,7 +80,6 @@ export interface CreatePostRequest {
 export interface UpdatePostRequest {
   title?: string;
   body?: string;
-  excerpt?: string;
   authorId: string;
   tags?: string[];
 }

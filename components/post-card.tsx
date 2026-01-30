@@ -86,13 +86,6 @@ export function PostCard({ post }: PostCardProps) {
           {post.title}
         </h2>
 
-        {/* Excerpt */}
-        {post.excerpt && (
-          <p className="line-clamp-2 text-sm leading-relaxed text-muted-foreground">
-            {post.excerpt}
-          </p>
-        )}
-
         {/* Meta */}
         <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">

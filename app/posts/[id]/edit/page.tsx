@@ -25,7 +25,6 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
   const [isLoading, setIsLoading] = useState(true);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [title, setTitle] = useState("");
-  const [excerpt, setExcerpt] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
@@ -41,7 +40,6 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
       if (response.data) {
         setPost(response.data);
         setTitle(response.data.title);
-        setExcerpt(response.data.excerpt || "");
         setContent(response.data.body || "");
         const tagNames = (response.data.tags || []).map((tag) =>
           typeof tag === "string" ? tag : tag.name
@@ -87,7 +85,6 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
     try {
       const response = await api.posts.update(Number(id), {
         title: title.trim(),
-        excerpt: excerpt.trim() || undefined,
         body: content.trim(),
         tags,
       });
@@ -187,22 +184,6 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
               className="text-lg"
               required
             />
-          </div>
-
-          {/* Excerpt */}
-          <div className="space-y-2">
-            <Label htmlFor="excerpt">Excerpt (optional)</Label>
-            <Textarea
-              id="excerpt"
-              placeholder="A brief summary of your post..."
-              value={excerpt}
-              onChange={(e) => setExcerpt(e.target.value)}
-              className="resize-none"
-              rows={2}
-            />
-            <p className="text-xs text-muted-foreground">
-              This will be shown in post previews
-            </p>
           </div>
 
           {/* Tags */}

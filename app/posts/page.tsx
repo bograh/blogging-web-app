@@ -17,7 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, X } from "lucide-react";
+import { Search, Loader2, X, ChevronDown } from "lucide-react";
 import type { Post, Tag } from "@/types";
 
 function PostsPage() {
@@ -26,6 +26,7 @@ function PostsPage() {
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
+  const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [sortBy, setSortBy] = useState<
     "createdAt" | "lastUpdated" | "updatedAt" | "title" | "id"
   >("updatedAt");
@@ -112,96 +113,121 @@ function PostsPage() {
         </div>
 
         {/* Filters */}
-        <div className="mb-8 rounded-xl border border-border bg-card p-6">
-          {/* Search */}
-          <form onSubmit={handleSearch} className="flex gap-2">
-            <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                type="text"
-                placeholder="Search posts..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className="pl-10"
-              />
-            </div>
-            <Button type="submit">Search</Button>
-          </form>
-
-          {/* Tags */}
-          <div className="mt-4">
-            <p className="mb-2 text-sm text-muted-foreground">Popular tags:</p>
-            <div className="flex flex-wrap gap-2">
-              {popularTags.map((tag) => (
-                <Badge
-                  key={tag.name}
-                  variant={selectedTags.includes(tag.name) ? "default" : "secondary"}
-                  className="cursor-pointer"
-                  onClick={() => toggleTag(tag.name)}
-                >
-                  {tag.name}
+        <div className="mb-8 rounded-xl border border-border bg-card">
+          {/* Header */}
+          <button
+            onClick={() => setIsFiltersOpen(!isFiltersOpen)}
+            className="flex w-full items-center justify-between p-6 text-left hover:bg-accent/10 rounded-t-xl transition-colors"
+          >
+            <div className="flex items-center gap-2">
+              <h2 className="text-lg font-semibold text-foreground">Filters</h2>
+              {(selectedTags.length > 0 || searchQuery) && (
+                <Badge variant="secondary" className="ml-2">
+                  {selectedTags.length + (searchQuery ? 1 : 0)} active
                 </Badge>
-              ))}
+              )}
             </div>
-          </div>
+            <ChevronDown
+              className={`h-5 w-5 text-muted-foreground transition-transform ${
+                isFiltersOpen ? "rotate-180" : ""
+              }`}
+            />
+          </button>
 
-          {/* Sort */}
-          <div className="mt-4 flex flex-wrap items-center gap-4">
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Sort by:</span>
-              <Select
-                value={sortBy}
-                onValueChange={(v) =>
-                  setSortBy(v as "createdAt" | "lastUpdated" | "title" | "id")
-                }
-              >
-                <SelectTrigger className="w-[140px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="createdAt">Date Created</SelectItem>
-                  <SelectItem value="lastUpdated">Last Updated</SelectItem>
-                  <SelectItem value="title">Title</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="flex items-center gap-2">
-              <span className="text-sm text-muted-foreground">Order:</span>
-              <Select
-                value={sortOrder}
-                onValueChange={(v) => setSortOrder(v as "ASC" | "DESC")}
-              >
-                <SelectTrigger className="w-[120px]">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  {sortBy === "title" ? (
-                    <>
-                      <SelectItem value="ASC">A-Z</SelectItem>
-                      <SelectItem value="DESC">Z-A</SelectItem>
-                    </>
-                  ) : (
-                    <>
-                      <SelectItem value="DESC">Newest</SelectItem>
-                      <SelectItem value="ASC">Oldest</SelectItem>
-                    </>
-                  )}
-                </SelectContent>
-              </Select>
-            </div>
+          {/* Collapsible Content */}
+          {isFiltersOpen && (
+            <div className="border-t border-border p-6 pt-4">
+              {/* Search */}
+              <form onSubmit={handleSearch} className="flex gap-2">
+                <div className="relative flex-1">
+                  <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                  <Input
+                    type="text"
+                    placeholder="Search posts..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="pl-10"
+                  />
+                </div>
+                <Button type="submit">Search</Button>
+              </form>
 
-            {(selectedTags.length > 0 || searchQuery) && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={clearFilters}
-                className="gap-1 text-muted-foreground"
-              >
-                <X className="h-4 w-4" />
-                Clear filters
-              </Button>
-            )}
-          </div>
+              {/* Tags */}
+              <div className="mt-4">
+                <p className="mb-2 text-sm text-muted-foreground">Popular tags:</p>
+                <div className="flex flex-wrap gap-2">
+                  {popularTags.map((tag) => (
+                    <Badge
+                      key={tag.name}
+                      variant={selectedTags.includes(tag.name) ? "default" : "secondary"}
+                      className="cursor-pointer"
+                      onClick={() => toggleTag(tag.name)}
+                    >
+                      {tag.name}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+
+              {/* Sort */}
+              <div className="mt-4 flex flex-wrap items-center gap-4">
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Sort by:</span>
+                  <Select
+                    value={sortBy}
+                    onValueChange={(v) =>
+                      setSortBy(v as "createdAt" | "lastUpdated" | "title" | "id")
+                    }
+                  >
+                    <SelectTrigger className="w-[140px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="createdAt">Date Created</SelectItem>
+                      <SelectItem value="lastUpdated">Last Updated</SelectItem>
+                      <SelectItem value="title">Title</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-sm text-muted-foreground">Order:</span>
+                  <Select
+                    value={sortOrder}
+                    onValueChange={(v) => setSortOrder(v as "ASC" | "DESC")}
+                  >
+                    <SelectTrigger className="w-[120px]">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {sortBy === "title" ? (
+                        <>
+                          <SelectItem value="ASC">A-Z</SelectItem>
+                          <SelectItem value="DESC">Z-A</SelectItem>
+                        </>
+                      ) : (
+                        <>
+                          <SelectItem value="DESC">Newest</SelectItem>
+                          <SelectItem value="ASC">Oldest</SelectItem>
+                        </>
+                      )}
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                {(selectedTags.length > 0 || searchQuery) && (
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={clearFilters}
+                    className="gap-1 text-muted-foreground"
+                  >
+                    <X className="h-4 w-4" />
+                    Clear filters
+                  </Button>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         {/* Posts Grid */}

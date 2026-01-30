@@ -47,7 +47,6 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
             id: post.id,
             title: post.title,
             body: post.body,
-            excerpt: post.excerpt,
             authorId: post.authorId,
             authorName: post.author,
             tags: post.tags,
