@@ -40,7 +40,20 @@ import type { Post, Comment } from "@/types";
 // Helper function to safely format dates
 const formatDate = (dateString: string, formatStr: string) => {
   try {
-    const date = new Date(dateString);
+    if (!dateString) {
+      return "Unknown date";
+    }
+
+    // Try parsing as-is first
+    let date = new Date(dateString);
+
+    // If invalid, try parsing custom format: "Tuesday, January 27, 2026 09:42:03"
+    if (isNaN(date.getTime())) {
+      // Remove day name and parse the rest
+      const withoutDay = dateString.replace(/^\w+,\s*/, '');
+      date = new Date(withoutDay);
+    }
+
     if (isNaN(date.getTime())) {
       return "Unknown date";
     }
@@ -84,7 +97,7 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const loadComments = async () => {
     try {
       const response = await api.comments.getByPostId(Number(id));
-      if (response.data) {
+      if (response.data && Array.isArray(response.data)) {
         setComments(response.data);
       }
     } catch (error) {
@@ -189,11 +202,14 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
           {/* Tags */}
           {post.tags && post.tags.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-2">
-              {post.tags.map((tag) => (
-                <Badge key={tag} variant="secondary">
-                  {tag}
-                </Badge>
-              ))}
+              {post.tags.map((tag) => {
+                const tagName = typeof tag === 'string' ? tag : tag.name;
+                return (
+                  <Badge key={tagName} variant="secondary">
+                    {tagName}
+                  </Badge>
+                );
+              })}
             </div>
           )}
 
@@ -208,15 +224,15 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
                 <User className="h-4 w-4" />
               </div>
-              <span>{post.authorName}</span>
+              <span>{typeof post.author === 'string' ? post.author : post.authorName || 'Unknown'}</span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <time dateTime={post.createdAt}>
-                {formatDate(post.lastUpdated, "MMM d, yyyy")}
+              <time dateTime={post.postedAt || post.createdAt || post.updatedAt}>
+                {formatDate(post.postedAt || post.createdAt || post.updatedAt || post.lastUpdated || "", "MMM d, yyyy")}
               </time>
             </div>
-            {post.lastUpdated !== post.createdAt && (
+            {post.lastUpdated && post.lastUpdated !== (post.postedAt || post.createdAt) && (
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
                 <span>

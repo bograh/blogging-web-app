@@ -27,8 +27,8 @@ function PostsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [sortBy, setSortBy] = useState<
-    "createdAt" | "lastUpdated" | "title" | "id"
-  >("lastUpdated");
+    "createdAt" | "lastUpdated" | "updatedAt" | "title" | "id"
+  >("updatedAt");
   const [sortOrder, setSortOrder] = useState<"ASC" | "DESC">("DESC");
   const [page, setPage] = useState(0);
   const [totalPages, setTotalPages] = useState(0);
@@ -46,7 +46,7 @@ function PostsPage() {
   const loadPopularTags = async () => {
     try {
       const response = await api.tags.getPopular();
-      if (response.data) {
+      if (response.data && Array.isArray(response.data)) {
         setPopularTags(response.data);
       }
     } catch (error) {
@@ -175,8 +175,17 @@ function PostsPage() {
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="DESC">Newest</SelectItem>
-                  <SelectItem value="ASC">Oldest</SelectItem>
+                  {sortBy === "title" ? (
+                    <>
+                      <SelectItem value="ASC">A-Z</SelectItem>
+                      <SelectItem value="DESC">Z-A</SelectItem>
+                    </>
+                  ) : (
+                    <>
+                      <SelectItem value="DESC">Newest</SelectItem>
+                      <SelectItem value="ASC">Oldest</SelectItem>
+                    </>
+                  )}
                 </SelectContent>
               </Select>
             </div>

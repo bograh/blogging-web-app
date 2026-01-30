@@ -63,23 +63,80 @@ async function request<T>(
       });
     }
 
-    // For successful responses with no content (like DELETE), return success
-    if (!data) {
-      return { status: 'success', message: 'Operation successful' } as ApiResponse<T>;
+    // Check if the backend already wrapped the response
+    if (data && typeof data === 'object' && 'data' in data && 'status' in data) {
+      // Backend already wrapped it, extract the inner data
+      return {
+        status: data.status || 'success',
+        message: data.message || 'Request successful',
+        data: data.data
+      };
     }
 
-    return data as ApiResponse<T>;
-  } catch (error: any) {
-    // Network error or JSON parse error
-    if (error.errorStatus) {
-      throw error; // Re-throw API errors
-    }
-    throw {
+    return {
+      status: 'success',
+      message: 'Request successful',
+      data
+    };
+  } catch (err) {
+    return Promise.reject({
       errorStatus: 'error',
-      errorMessage: error.message || 'Network error',
+      errorMessage: err instanceof Error ? err.message : 'Network error',
       errorCode: 500,
       timestamp: new Date().toISOString()
+    });
+  }
+}
+
+// --- GRAPHQL HELPER ---
+async function graphqlRequest<T>(
+  query: string,
+  variables?: Record<string, any>
+): Promise<ApiResponse<T>> {
+  const url = `${BASE_URL}/graphql`;
+
+  const config: RequestInit = {
+    method: 'POST',
+    headers: {
+      'Content-Type': 'application/json',
+    },
+    body: JSON.stringify({ query, variables }),
+  };
+
+  try {
+    const response = await fetch(url, config);
+    const json = await response.json();
+
+    if (!response.ok) {
+      return Promise.reject({
+        errorStatus: 'error',
+        errorMessage: json.errors?.[0]?.message || 'GraphQL request failed',
+        errorCode: response.status,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    if (json.errors) {
+      return Promise.reject({
+        errorStatus: 'error',
+        errorMessage: json.errors[0]?.message || 'GraphQL error',
+        errorCode: 400,
+        timestamp: new Date().toISOString()
+      });
+    }
+
+    return {
+      status: 'success',
+      message: 'Request successful',
+      data: json.data
     };
+  } catch (err) {
+    return Promise.reject({
+      errorStatus: 'error',
+      errorMessage: err instanceof Error ? err.message : 'Network error',
+      errorCode: 500,
+      timestamp: new Date().toISOString()
+    });
   }
 }
 
@@ -145,26 +202,63 @@ export const api = {
       page = 0,
       size = 10,
       options?: {
-        sort?: 'id' | 'createdAt' | 'lastUpdated' | 'title';
+        sort?: 'id' | 'createdAt' | 'lastUpdated' | 'updatedAt' | 'title';
         order?: 'ASC' | 'DESC';
         author?: string;
         tags?: string[];
         search?: string;
       }
     ): Promise<ApiResponse<PaginatedResponse<Post>>> => {
-      const params = new URLSearchParams();
-      params.append('page', String(page));
-      params.append('size', String(size));
+      const sortBy = options?.sort === 'lastUpdated' ? 'updatedAt' : (options?.sort || 'updatedAt');
+      const sortDirection = options?.order || 'DESC';
 
-      if (options?.sort) params.append('sort', options.sort);
-      if (options?.order) params.append('order', options.order);
-      if (options?.author) params.append('author', options.author);
-      if (options?.search) params.append('search', options.search);
-      if (options?.tags) {
-        options.tags.forEach(tag => params.append('tags', tag));
+      const query = `
+        query GetAllPosts($page: Int!, $size: Int!, $sortBy: String!, $sortDirection: String!) {
+          getAllPosts(
+            page: $page,
+            size: $size,
+            sortBy: $sortBy,
+            sortDirection: $sortDirection
+          ) {
+            content {
+              id
+              title
+              updatedAt
+              tags {
+                name
+              }
+              totalComments
+              author {
+                username
+              }
+            }
+            pageNumber
+            pageSize
+            totalElements
+            totalPages
+            last
+          }
+        }
+      `;
+
+      const variables = {
+        page,
+        size,
+        sortBy,
+        sortDirection,
+      };
+
+      const response = await graphqlRequest<{ getAllPosts: PaginatedResponse<Post> }>(query, variables);
+
+      if (response.data) {
+        return {
+          status: 'success',
+          message: 'Posts loaded successfully',
+          data: response.data.getAllPosts
+        };
       }
 
-      return request<PaginatedResponse<Post>>(`/api/v1/posts?${params.toString()}`);
+      return response as any;
     },
 
     getById: async (id: number): Promise<ApiResponse<Post>> => {

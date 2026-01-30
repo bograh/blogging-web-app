@@ -42,8 +42,11 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
         setPost(response.data);
         setTitle(response.data.title);
         setExcerpt(response.data.excerpt || "");
-        setContent(response.data.body);
-        setTags(response.data.tags || []);
+        setContent(response.data.body || "");
+        const tagNames = (response.data.tags || []).map((tag) =>
+          typeof tag === "string" ? tag : tag.name
+        );
+        setTags(tagNames);
       }
     } catch (error) {
       console.log("Error loading post:", error);

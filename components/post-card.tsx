@@ -26,9 +26,33 @@ export function PostCard({ post }: PostCardProps) {
   };
 
   // Handle different field names from different API endpoints
-  const authorName = post.authorName || post.author || "Unknown";
-  const createdAt = post.createdAt || post.postedAt || "";
+  // Support nested author object from GraphQL
+  const getAuthorName = () => {
+    if (typeof post.author === 'object' && post.author?.username) {
+      return post.author.username;
+    }
+    return post.authorName || (typeof post.author === 'string' ? post.author : '') || "Unknown";
+  };
+
+  const authorName = getAuthorName();
+  const createdAt = post.createdAt || post.postedAt || post.updatedAt || "";
   const commentsCount = post.commentsCount ?? post.totalComments ?? 0;
+
+  // Handle tags - support both string[] and {name: string}[]
+  const getTags = (): string[] => {
+    if (!post.tags) return [];
+    if (Array.isArray(post.tags) && post.tags.length > 0) {
+      if (typeof post.tags[0] === 'string') {
+        return post.tags as string[];
+      }
+      if (typeof post.tags[0] === 'object' && 'name' in post.tags[0]) {
+        return (post.tags as { name: string }[]).map(t => t.name);
+      }
+    }
+    return [];
+  };
+
+  const tags = getTags();
 
   return (
     <article className="group relative rounded-xl border border-border bg-card p-6 transition-all hover:border-primary/50 hover:bg-card/80">
@@ -38,9 +62,9 @@ export function PostCard({ post }: PostCardProps) {
 
       <div className="flex flex-col gap-4">
         {/* Tags */}
-        {post.tags && post.tags.length > 0 && (
+        {tags && tags.length > 0 && (
           <div className="flex flex-wrap gap-2">
-            {post.tags.slice(0, 3).map((tag) => (
+            {tags.slice(0, 3).map((tag) => (
               <Badge
                 key={tag}
                 variant="secondary"
@@ -49,9 +73,9 @@ export function PostCard({ post }: PostCardProps) {
                 {tag}
               </Badge>
             ))}
-            {post.tags.length > 3 && (
+            {tags.length > 3 && (
               <Badge variant="secondary" className="text-xs font-medium">
-                +{post.tags.length - 3}
+                +{tags.length - 3}
               </Badge>
             )}
           </div>

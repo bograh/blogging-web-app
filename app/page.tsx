@@ -26,7 +26,7 @@ function HomePage() {
     setIsLoading(true);
     try {
       const response = await api.posts.getAll(0, 6, {
-        sort: "lastUpdated",
+        sort: "updatedAt",
         order: "DESC",
         search: search || undefined,
       });
