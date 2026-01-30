@@ -58,15 +58,16 @@ export interface RegisterRequest {
 export interface Post {
   id: number;
   title: string;
-  body: string;
+  body?: string;
   excerpt?: string;
-  authorId: string;
+  authorId?: string;
   authorName?: string; // For list/detail endpoints
-  author?: string; // For profile endpoint
-  tags: string[];
+  author?: string | { username: string }; // For profile endpoint or GraphQL
+  tags?: string[] | { name: string }[]; // Support both formats
   createdAt?: string; // For list/detail endpoints
   postedAt?: string; // For profile endpoint
-  lastUpdated: string;
+  updatedAt?: string; // For GraphQL
+  lastUpdated?: string;
   commentsCount?: number; // For list/detail endpoints
   totalComments?: number; // For profile endpoint
 }
