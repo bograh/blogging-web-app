@@ -164,7 +164,7 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
         {/* User Posts */}
         <div className="mt-12">
           <h2 className="text-xl font-bold text-foreground">
-            {isOwnProfile ? "Your Posts" : `Posts by ${profile.username}`}
+            {isOwnProfile ? "Your Recent Posts" : `Recent Posts by ${profile.username}`}
           </h2>
 
           {posts.length === 0 ? (

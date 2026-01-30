@@ -335,40 +335,48 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
                 No comments yet. Be the first to comment!
               </p>
             ) : (
-              comments.map((comment) => (
-                <div
-                  key={comment.id}
-                  className="rounded-lg border border-border bg-card p-4"
-                >
-                  <div className="flex items-start justify-between">
-                    <div className="flex items-center gap-2">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary">
-                        <User className="h-3 w-3" />
+              comments.map((comment) => {
+                // Check if current user is the author
+                const commentAuthor = comment.author || comment.authorName || "";
+                const currentUserName = user?.username || user?.name || "";
+                const isAuthor = user && commentAuthor &&
+                  commentAuthor.toLowerCase() === currentUserName.toLowerCase();
+
+                return (
+                  <div
+                    key={comment.id}
+                    className="rounded-lg border border-border bg-card p-4"
+                  >
+                    <div className="flex items-start justify-between">
+                      <div className="flex items-center gap-2">
+                        <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary">
+                          <User className="h-3 w-3" />
+                        </div>
+                        <span className="text-sm font-medium text-foreground">
+                          {comment.author || comment.authorName || "Anonymous"}
+                        </span>
+                        <span className="text-xs text-muted-foreground">
+                          {formatDate(comment.createdAt, "MMM d, yyyy")}
+                        </span>
                       </div>
-                      <span className="text-sm font-medium text-foreground">
-                        {comment.authorName}
-                      </span>
-                      <span className="text-xs text-muted-foreground">
-                        {formatDate(comment.createdAt, "MMM d, yyyy")}
-                      </span>
+                      {isAuthor && (
+                        <Button
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => handleDeleteComment(comment.id)}
+                          className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                          <span className="sr-only">Delete comment</span>
+                        </Button>
+                      )}
                     </div>
-                    {user?.id === comment.authorId && (
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => handleDeleteComment(comment.id)}
-                        className="h-8 w-8 p-0 text-muted-foreground hover:text-destructive"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                        <span className="sr-only">Delete comment</span>
-                      </Button>
-                    )}
+                    <p className="mt-3 text-sm leading-relaxed text-foreground/80">
+                      {comment.content}
+                    </p>
                   </div>
-                  <p className="mt-3 text-sm leading-relaxed text-foreground/80">
-                    {comment.content}
-                  </p>
-                </div>
-              ))
+                );
+              })
             )}
           </div>
         </section>

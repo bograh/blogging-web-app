@@ -58,7 +58,7 @@ export function Header() {
                     size="sm"
                     className="gap-2 text-muted-foreground"
                   >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-full bg-secondary">
+                    <div className="flex h-7 w-7 items-center justify-center rounded-full">
                       <User className="h-4 w-4" />
                     </div>
                     <span className="max-w-[100px] truncate">{user.name}</span>

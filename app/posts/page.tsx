@@ -57,7 +57,7 @@ function PostsPage() {
   const loadPosts = async (search?: string) => {
     setIsLoading(true);
     try {
-      const response = await api.posts.getAll(page, 9, {
+      const response = await api.posts.getAll(page, 12, {
         sort: sortBy,
         order: sortOrder,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
