@@ -158,3 +158,34 @@ export interface MetricsSummary {
   totalExecutions: number;
   totalMethodsMonitored: number;
 }
+
+// Cache Metrics types
+export interface CacheMetric {
+  cacheName: string;
+  hits: number;
+  misses: number;
+  hitRate: string;
+  missRate: string;
+  totalRequests: number;
+  puts: number;
+  evictions: number;
+  clears: number;
+  timestamp: string;
+}
+
+export interface CacheMetricsResponse {
+  caches: Record<string, CacheMetric>;
+  totalCaches: number;
+  timestamp: string;
+}
+
+export interface CacheSummary {
+  totalEvictions: number;
+  overallHitRate: string;
+  totalHits: number;
+  totalRequests: number;
+  totalCaches: number;
+  totalPuts: number;
+  totalMisses: number;
+  timestamp: string;
+}

@@ -7,13 +7,15 @@ import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Activity, TrendingUp, Clock, BarChart3, Loader2, RefreshCw, Download, Trash2, CheckCircle, XCircle } from "lucide-react";
+import { Activity, TrendingUp, Clock, BarChart3, Loader2, RefreshCw, Download, Trash2, CheckCircle, XCircle, Database, Zap } from "lucide-react";
 import { toast } from "sonner";
-import type { MetricsResponse, MetricsSummary, MethodMetric } from "@/types";
+import type { MetricsResponse, MetricsSummary, MethodMetric, CacheMetricsResponse, CacheSummary } from "@/types";
 
 function MetricsPage() {
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [summary, setSummary] = useState<MetricsSummary | null>(null);
+  const [cacheMetrics, setCacheMetrics] = useState<CacheMetricsResponse | null>(null);
+  const [cacheSummary, setCacheSummary] = useState<CacheSummary | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
@@ -26,9 +28,11 @@ function MetricsPage() {
   const loadMetrics = async () => {
     setIsLoading(true);
     try {
-      const [metricsRes, summaryRes] = await Promise.all([
+      const [metricsRes, summaryRes, cacheMetricsRes, cacheSummaryRes] = await Promise.all([
         api.metrics.getAll(),
         api.metrics.getSummary(),
+        api.metrics.getCacheMetrics(),
+        api.metrics.getCacheSummary(),
       ]);
 
       if (metricsRes.data) {
@@ -36,6 +40,12 @@ function MetricsPage() {
       }
       if (summaryRes.data) {
         setSummary(summaryRes.data);
+      }
+      if (cacheMetricsRes.data) {
+        setCacheMetrics(cacheMetricsRes.data);
+      }
+      if (cacheSummaryRes.data) {
+        setCacheSummary(cacheSummaryRes.data);
       }
     } catch (error) {
       console.log("Error loading metrics:", error);
@@ -200,6 +210,131 @@ function MetricsPage() {
               </CardContent>
             </Card>
           </div>
+        )}
+
+        {/* Cache Metrics Summary */}
+        {cacheSummary && (
+          <div className="mb-8">
+            <h2 className="mb-4 text-2xl font-bold text-foreground flex items-center gap-2">
+              <Database className="h-6 w-6" />
+              Cache Performance
+            </h2>
+            <div className="grid gap-6 md:grid-cols-4">
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                  <Zap className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{cacheSummary.totalRequests.toLocaleString()}</div>
+                  <p className="text-xs text-muted-foreground">
+                    {cacheSummary.totalHits} hits · {cacheSummary.totalMisses} misses
+                  </p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Overall Hit Rate</CardTitle>
+                  <TrendingUp className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{cacheSummary.overallHitRate}</div>
+                  <p className="text-xs text-muted-foreground">Cache efficiency</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Caches</CardTitle>
+                  <Database className="h-4 w-4 text-muted-foreground" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold">{cacheSummary.totalCaches}</div>
+                  <p className="text-xs text-muted-foreground">{cacheSummary.totalPuts} puts total</p>
+                </CardContent>
+              </Card>
+
+              <Card>
+                <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                  <CardTitle className="text-sm font-medium">Total Evictions</CardTitle>
+                  <XCircle className="h-4 w-4 text-destructive" />
+                </CardHeader>
+                <CardContent>
+                  <div className="text-2xl font-bold text-destructive">{cacheSummary.totalEvictions}</div>
+                  <p className="text-xs text-muted-foreground">Cache evictions</p>
+                </CardContent>
+              </Card>
+            </div>
+          </div>
+        )}
+
+        {/* Individual Cache Metrics */}
+        {cacheMetrics && cacheMetrics.caches && Object.keys(cacheMetrics.caches).length > 0 && (
+          <Card className="mb-8">
+            <CardHeader>
+              <CardTitle className="flex items-center gap-2">
+                <Database className="h-5 w-5" />
+                Cache Details
+              </CardTitle>
+              <CardDescription>Performance metrics for individual caches</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {Object.values(cacheMetrics.caches).map((cache) => (
+                  <div
+                    key={cache.cacheName}
+                    className="rounded-lg border border-border bg-card p-4"
+                  >
+                    <div className="flex flex-col gap-3">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2">
+                          <code className="text-sm font-mono font-medium">{cache.cacheName}</code>
+                          <Badge variant={parseFloat(cache.hitRate) > 50 ? "default" : "secondary"}>
+                            {cache.hitRate} hit rate
+                          </Badge>
+                        </div>
+                        <div className="flex gap-2">
+                          <Badge variant="outline" className="gap-1">
+                            <CheckCircle className="h-3 w-3 text-green-500" />
+                            {cache.hits} hits
+                          </Badge>
+                          <Badge variant="outline" className="gap-1">
+                            <XCircle className="h-3 w-3 text-destructive" />
+                            {cache.misses} misses
+                          </Badge>
+                        </div>
+                      </div>
+                      <div className="flex flex-wrap gap-4 text-sm">
+                        <div>
+                          <span className="text-muted-foreground">Total Requests: </span>
+                          <span className="font-medium">{cache.totalRequests}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Puts: </span>
+                          <span className="font-medium">{cache.puts}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Evictions: </span>
+                          <span className="font-medium">{cache.evictions}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Clears: </span>
+                          <span className="font-medium">{cache.clears}</span>
+                        </div>
+                        <div>
+                          <span className="text-muted-foreground">Miss Rate: </span>
+                          <span className={`font-medium ${parseFloat(cache.missRate) > 50 ? 'text-destructive' : ''}`}>
+                            {cache.missRate}
+                          </span>
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         )}
 
         {/* Top Methods */}

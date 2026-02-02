@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PenLine, User, LogOut, Menu, X } from "lucide-react";
+import { PenLine, User, LogOut, Menu, X, BarChart3 } from "lucide-react";
 import { useState } from "react";
 
 export function Header() {
@@ -42,6 +42,12 @@ export function Header() {
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             All Posts
+          </Link>
+          <Link
+            href="/metrics"
+            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            Metrics
           </Link>
           {user ? (
             <>
@@ -128,6 +134,13 @@ export function Header() {
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               All Posts
+            </Link>
+            <Link
+              href="/metrics"
+              onClick={() => setMobileMenuOpen(false)}
+              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              Metrics
             </Link>
             {user ? (
               <>

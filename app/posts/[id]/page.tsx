@@ -130,7 +130,7 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
         postId: Number(id),
       });
       if (response.data) {
-        setComments((prev) => [...prev, response.data!]);
+        setComments((prev) => [response.data!, ...prev]);
         setNewComment("");
         toast.success("Comment added");
       }
@@ -144,7 +144,7 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
 
   const handleDeleteComment = async (commentId: string) => {
     try {
-      await api.comments.delete(commentId);
+      await api.comments.delete(commentId, Number(id));
       setComments((prev) => prev.filter((c) => c.id !== commentId));
       toast.success("Comment deleted");
     } catch (error) {

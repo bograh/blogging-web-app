@@ -1,7 +1,8 @@
 import {
   User, LoginRequest, RegisterRequest, Post, CreatePostRequest, UpdatePostRequest,
   ApiResponse, PaginatedResponse, Comment, CreateCommentRequest,
-  MetricsResponse, MetricsSummary, UserProfile, Tag
+  MetricsResponse, MetricsSummary, UserProfile, Tag, CacheMetricsResponse,
+  CacheMetric, CacheSummary
 } from '@/types';
 
 // --- API CONFIGURATION ---
@@ -343,7 +344,7 @@ export const api = {
       });
     },
 
-    delete: async (commentId: string): Promise<ApiResponse<void>> => {
+    delete: async (commentId: string, postId: number): Promise<ApiResponse<void>> => {
       const authorId = storage.getUserId();
       if (!authorId) {
         return Promise.reject({
@@ -356,7 +357,7 @@ export const api = {
 
       return request<void>(`/api/v1/comments/${commentId}`, {
         method: 'DELETE',
-        body: JSON.stringify({ authorId }),
+        body: JSON.stringify({ authorId, postId }),
       });
     }
   },
@@ -438,6 +439,61 @@ export const api = {
         throw {
           errorStatus: 'error',
           errorMessage: error.message || 'Failed to reset metrics',
+          errorCode: 500,
+          timestamp: new Date().toISOString()
+        };
+      }
+    },
+
+    // Cache metrics
+    getCacheMetrics: async (): Promise<ApiResponse<CacheMetricsResponse>> => {
+      try {
+        const response = await fetch(`${BASE_URL}/api/metrics/performance/cache`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch cache metrics');
+        }
+        const data = await response.json();
+        return { status: 'success', message: 'Cache metrics retrieved', data };
+      } catch (error: any) {
+        throw {
+          errorStatus: 'error',
+          errorMessage: error.message || 'Failed to fetch cache metrics',
+          errorCode: 500,
+          timestamp: new Date().toISOString()
+        };
+      }
+    },
+
+    getCacheByName: async (cacheName: string): Promise<ApiResponse<CacheMetric>> => {
+      try {
+        const response = await fetch(`${BASE_URL}/api/metrics/performance/cache/${cacheName}`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch cache metric');
+        }
+        const data = await response.json();
+        return { status: 'success', message: 'Cache metric retrieved', data };
+      } catch (error: any) {
+        throw {
+          errorStatus: 'error',
+          errorMessage: error.message || 'Failed to fetch cache metric',
+          errorCode: 500,
+          timestamp: new Date().toISOString()
+        };
+      }
+    },
+
+    getCacheSummary: async (): Promise<ApiResponse<CacheSummary>> => {
+      try {
+        const response = await fetch(`${BASE_URL}/api/metrics/performance/cache/summary`);
+        if (!response.ok) {
+          throw new Error('Failed to fetch cache summary');
+        }
+        const data = await response.json();
+        return { status: 'success', message: 'Cache summary retrieved', data };
+      } catch (error: any) {
+        throw {
+          errorStatus: 'error',
+          errorMessage: error.message || 'Failed to fetch cache summary',
           errorCode: 500,
           timestamp: new Date().toISOString()
         };

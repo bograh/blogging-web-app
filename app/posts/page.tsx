@@ -230,15 +230,6 @@ function PostsPage() {
           )}
         </div>
 
-        {/* Metrics Navigation Button */}
-        <div className="mb-6 flex justify-end">
-          <Button asChild variant="outline">
-            <a href="/metrics">
-              View Metrics
-            </a>
-          </Button>
-        </div>
-
         {/* Posts Grid */}
         {isLoading ? (
           <div className="flex items-center justify-center py-20">
