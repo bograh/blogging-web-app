@@ -353,12 +353,14 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
           {user ? (
             <form onSubmit={handleSubmitComment} className="mt-6">
               <div className="relative">
-                <Textarea
-                  placeholder="Write a comment or add a GIF..."
-                  value={newComment}
-                  onChange={(e) => setNewComment(e.target.value)}
-                  className="min-h-[100px] resize-none"
-                />
+                {!isGifUrl(newComment) && (
+                  <Textarea
+                    placeholder="Write a comment or add a GIF..."
+                    value={newComment}
+                    onChange={(e) => setNewComment(e.target.value)}
+                    className="min-h-[100px] resize-none"
+                  />
+                )}
                 {isGifUrl(newComment) && (
                   <div className="mt-2 relative inline-block">
                     <img
