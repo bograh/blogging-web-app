@@ -12,6 +12,7 @@ import { Header } from "@/components/header";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
+import { Input } from "@/components/ui/input";
 import {
   AlertDialog,
   AlertDialogAction,
@@ -33,6 +34,9 @@ import {
   Trash2,
   Loader2,
   Send,
+  Image as ImageIcon,
+  Smile,
+  X as XIcon,
 } from "lucide-react";
 import { toast } from "sonner";
 import type { Post, Comment } from "@/types";
@@ -73,6 +77,10 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [showGifPicker, setShowGifPicker] = useState(false);
+  const [gifSearch, setGifSearch] = useState("");
+  const [gifs, setGifs] = useState<any[]>([]);
+  const [isLoadingGifs, setIsLoadingGifs] = useState(false);
 
   useEffect(() => {
     loadPost();
@@ -151,6 +159,40 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
       console.log("Error deleting comment:", error);
       toast.error("Failed to delete comment");
     }
+  };
+
+  const searchGifs = async (query: string) => {
+    setIsLoadingGifs(true);
+    try {
+      const apiKey = "GlVGYHkr3WSBnllca54iNt0yFbjz7L65"; // Public Giphy API key
+      const endpoint = query
+        ? `https://api.giphy.com/v1/gifs/search?api_key=${apiKey}&q=${encodeURIComponent(query)}&limit=20`
+        : `https://api.giphy.com/v1/gifs/trending?api_key=${apiKey}&limit=20`;
+      const response = await fetch(endpoint);
+      const data = await response.json();
+      setGifs(data.data || []);
+    } catch (error) {
+      console.log("Error fetching GIFs:", error);
+      toast.error("Failed to load GIFs");
+    } finally {
+      setIsLoadingGifs(false);
+    }
+  };
+
+  const handleGifSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    searchGifs(gifSearch);
+  };
+
+  const handleSelectGif = (gifUrl: string) => {
+    setNewComment(gifUrl);
+    setShowGifPicker(false);
+    setGifSearch("");
+    setGifs([]);
+  };
+
+  const isGifUrl = (text: string) => {
+    return text.match(/^https?:\/\/.+\.(gif|giphy\.com)/i) || text.includes('media.giphy.com');
   };
 
   if (isLoading) {
@@ -310,13 +352,48 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
           {/* Comment Form */}
           {user ? (
             <form onSubmit={handleSubmitComment} className="mt-6">
-              <Textarea
-                placeholder="Write a comment..."
-                value={newComment}
-                onChange={(e) => setNewComment(e.target.value)}
-                className="min-h-[100px] resize-none"
-              />
-              <div className="mt-3 flex justify-end">
+              <div className="relative">
+                <Textarea
+                  placeholder="Write a comment or add a GIF..."
+                  value={newComment}
+                  onChange={(e) => setNewComment(e.target.value)}
+                  className="min-h-[100px] resize-none"
+                />
+                {isGifUrl(newComment) && (
+                  <div className="mt-2 relative inline-block">
+                    <img
+                      src={newComment}
+                      alt="Selected GIF"
+                      className="max-h-[200px] rounded-lg border border-border"
+                    />
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="absolute top-1 right-1 h-6 w-6 p-0 bg-background/80 hover:bg-background"
+                      onClick={() => setNewComment("")}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                )}
+              </div>
+              <div className="mt-3 flex justify-between items-center">
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  className="gap-2"
+                  onClick={() => {
+                    setShowGifPicker(!showGifPicker);
+                    if (!showGifPicker && gifs.length === 0) {
+                      searchGifs("");
+                    }
+                  }}
+                >
+                  <Smile className="h-4 w-4" />
+                  GIF
+                </Button>
                 <Button
                   type="submit"
                   disabled={!newComment.trim() || isSubmittingComment}
@@ -330,6 +407,67 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
                   Post Comment
                 </Button>
               </div>
+
+              {/* GIF Picker */}
+              {showGifPicker && (
+                <div className="mt-4 rounded-lg border border-border bg-card p-4">
+                  <div className="flex items-center justify-between mb-3">
+                    <h3 className="text-sm font-semibold">Choose a GIF</h3>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 w-6 p-0"
+                      onClick={() => {
+                        setShowGifPicker(false);
+                        setGifSearch("");
+                      }}
+                    >
+                      <XIcon className="h-4 w-4" />
+                    </Button>
+                  </div>
+                  <div className="mb-3">
+                    <Input
+                      type="text"
+                      placeholder="Search GIFs..."
+                      value={gifSearch}
+                      onChange={(e) => setGifSearch(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') {
+                          e.preventDefault();
+                          searchGifs(gifSearch);
+                        }
+                      }}
+                      className="w-full"
+                    />
+                  </div>
+                  <div className="max-h-[300px] overflow-y-auto">
+                    {isLoadingGifs ? (
+                      <div className="flex justify-center py-8">
+                        <Loader2 className="h-6 w-6 animate-spin text-primary" />
+                      </div>
+                    ) : (
+                      <div className="grid grid-cols-2 gap-2">
+                        {gifs.map((gif) => (
+                          <button
+                            key={gif.id}
+                            type="button"
+                            onClick={() => handleSelectGif(gif.images.fixed_height.url)}
+                            className="relative overflow-hidden rounded-lg border border-border hover:border-primary transition-colors"
+                          >
+                            <img
+                              src={gif.images.fixed_height_small.url}
+                              alt={gif.title}
+                              className="w-full h-auto"
+                            />
+                          </button>
+                        ))}
+                      </div>
+                    )}
+                  </div>
+                  <p className="text-xs text-muted-foreground mt-2 text-center">Powered by GIPHY</p>
+                </div>
+              )}
             </form>
           ) : (
             <div className="mt-6 rounded-lg border border-dashed border-border p-6 text-center">
@@ -407,9 +545,19 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
                         </AlertDialog>
                       )}
                     </div>
-                    <p className="mt-3 text-sm leading-relaxed text-foreground/80">
-                      {comment.content}
-                    </p>
+                    <div className="mt-3">
+                      {isGifUrl(comment.content) ? (
+                        <img
+                          src={comment.content}
+                          alt="GIF"
+                          className="max-h-[300px] rounded-lg border border-border"
+                        />
+                      ) : (
+                        <p className="text-sm leading-relaxed text-foreground/80">
+                          {comment.content}
+                        </p>
+                      )}
+                    </div>
                   </div>
                 );
               })
