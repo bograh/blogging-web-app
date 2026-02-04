@@ -211,9 +211,18 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
                         <span className="text-muted-foreground/50">·</span>
                         <time>{formatDate(comment.createdAt, "MMM d, yyyy")}</time>
                       </div>
-                      <p className="mt-2 text-sm leading-relaxed text-foreground">
-                        {comment.content}
-                      </p>
+                      <div className="mt-2 text-sm leading-relaxed text-foreground">
+                        {comment.content.match(/^https?:\/\/.*\.(gif|png|jpg|jpeg|webp)$/i) ? (
+                          <img
+                            src={comment.content}
+                            alt="Comment image"
+                            className="max-w-full rounded-md"
+                            style={{ maxHeight: "200px" }}
+                          />
+                        ) : (
+                          <p>{comment.content}</p>
+                        )}
+                      </div>
                     </div>
                   </div>
                 </Link>
