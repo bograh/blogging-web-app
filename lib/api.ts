@@ -1,12 +1,171 @@
+import axios, { AxiosError, AxiosRequestConfig, InternalAxiosRequestConfig } from 'axios';
 import {
   User, LoginRequest, RegisterRequest, Post, CreatePostRequest, UpdatePostRequest,
   ApiResponse, PaginatedResponse, Comment, CreateCommentRequest,
   MetricsResponse, MetricsSummary, UserProfile, Tag, CacheMetricsResponse,
-  CacheMetric, CacheSummary
+  CacheMetric, CacheSummary, AdminStats, AdminUser, AdminUserSummary, AdminComment, AuthResponse
 } from '@/types';
 
 // --- API CONFIGURATION ---
 const BASE_URL = 'http://localhost:8080';
+
+// Create axios instance with default config
+const axiosInstance = axios.create({
+  baseURL: BASE_URL,
+  headers: {
+    'Content-Type': 'application/json',
+  },
+  withCredentials: true, // Enable cookies for refresh token
+});
+
+// --- TOKEN MANAGEMENT ---
+const TOKEN_KEY = 'devblog_token';
+
+export const tokenManager = {
+  getToken: (): string | null => {
+    if (typeof window === 'undefined') return null;
+    return localStorage.getItem(TOKEN_KEY);
+  },
+  setToken: (token: string): void => {
+    localStorage.setItem(TOKEN_KEY, token);
+  },
+  removeToken: (): void => {
+    localStorage.removeItem(TOKEN_KEY);
+  },
+  isTokenExpired: (token: string): boolean => {
+    try {
+      const payload = JSON.parse(atob(token.split('.')[1]));
+      const exp = payload.exp * 1000; // Convert to milliseconds
+      return Date.now() >= exp - 30000; // 30 second buffer
+    } catch {
+      return true;
+    }
+  }
+};
+
+// --- REFRESH TOKEN LOGIC ---
+let isRefreshing = false;
+let refreshSubscribers: ((token: string) => void)[] = [];
+
+const subscribeTokenRefresh = (cb: (token: string) => void) => {
+  refreshSubscribers.push(cb);
+};
+
+const onTokenRefreshed = (token: string) => {
+  refreshSubscribers.forEach(cb => cb(token));
+  refreshSubscribers = [];
+};
+
+const refreshAccessToken = async (): Promise<string | null> => {
+  try {
+    const response = await axios.post<{ status: string; message: string; data: AuthResponse }>(
+      `${BASE_URL}/api/auth/refresh-token`,
+      {},
+      { withCredentials: true }
+    );
+    // The response structure is: { status, message, data: { user, accessToken } }
+    const authData = response.data.data;
+    const newToken = authData?.accessToken;
+    if (newToken) {
+      tokenManager.setToken(newToken);
+      // Also update stored user data
+      if (authData?.user) {
+        const user: User = {
+          id: authData.user.id,
+          username: authData.user.username,
+          email: authData.user.email,
+          name: authData.user.username,
+          roles: authData.user.roles || [],
+          accessToken: newToken,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+        storage.setUserId(user.id);
+        storage.setUser(user);
+      }
+      return newToken;
+    }
+    return null;
+  } catch (error) {
+    console.error('Failed to refresh token:', error);
+    tokenManager.removeToken();
+    return null;
+  }
+};
+
+// Request interceptor to add auth header and check token expiration
+axiosInstance.interceptors.request.use(
+  async (config: InternalAxiosRequestConfig) => {
+    // Skip auth for auth endpoints
+    const isAuthEndpoint = config.url?.includes('/api/auth/');
+    if (isAuthEndpoint) return config;
+
+    let token = tokenManager.getToken();
+
+    if (token && tokenManager.isTokenExpired(token)) {
+      if (!isRefreshing) {
+        isRefreshing = true;
+        const newToken = await refreshAccessToken();
+        isRefreshing = false;
+
+        if (newToken) {
+          onTokenRefreshed(newToken);
+          token = newToken;
+        } else {
+          // Token refresh failed, redirect to login
+          if (typeof window !== 'undefined') {
+            window.location.href = '/login';
+          }
+          return Promise.reject(new Error('Token refresh failed'));
+        }
+      } else {
+        // Wait for existing refresh request
+        token = await new Promise<string>(resolve => {
+          subscribeTokenRefresh(resolve);
+        });
+      }
+    }
+
+    if (token) {
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    return config;
+  },
+  (error) => Promise.reject(error)
+);
+
+// Response interceptor to handle 401 errors
+axiosInstance.interceptors.response.use(
+  (response) => response,
+  async (error: AxiosError) => {
+    const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+    if (error.response?.status === 401 && !originalRequest._retry) {
+      originalRequest._retry = true;
+
+      if (!isRefreshing) {
+        isRefreshing = true;
+        const newToken = await refreshAccessToken();
+        isRefreshing = false;
+
+        if (newToken) {
+          onTokenRefreshed(newToken);
+          originalRequest.headers.Authorization = `Bearer ${newToken}`;
+          return axiosInstance(originalRequest);
+        }
+      } else {
+        const token = await new Promise<string>(resolve => {
+          subscribeTokenRefresh(resolve);
+        });
+        originalRequest.headers.Authorization = `Bearer ${token}`;
+        return axiosInstance(originalRequest);
+      }
+    }
+
+    return Promise.reject(error);
+  }
+);
 
 // --- LOCAL STORAGE HELPERS ---
 const USER_ID_KEY = 'devblog_user_id';
@@ -27,50 +186,30 @@ export const storage = {
   clear: (): void => {
     localStorage.removeItem(USER_ID_KEY);
     localStorage.removeItem(USER_KEY);
+    localStorage.removeItem('devblog_token');
   }
 };
 
 // --- HTTP HELPER ---
 async function request<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: AxiosRequestConfig = {}
 ): Promise<ApiResponse<T>> {
-  const url = `${BASE_URL}${endpoint}`;
-
-  const config: RequestInit = {
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
-    ...options,
-  };
-
   try {
-    const response = await fetch(url, config);
+    const response = await axiosInstance.request<T>({
+      url: endpoint,
+      ...options,
+    });
 
-    // Handle 204 No Content or empty responses
-    const contentType = response.headers.get('content-type');
-    const hasJson = contentType?.includes('application/json');
-    const text = await response.text();
-    const data = text && hasJson ? JSON.parse(text) : null;
-
-    if (!response.ok) {
-      // API returns error in specific format
-      return Promise.reject({
-        errorStatus: data?.errorStatus || 'error',
-        errorMessage: data?.errorMessage || 'Request failed',
-        errorCode: data?.errorCode || response.status,
-        timestamp: data?.timestamp || new Date().toISOString()
-      });
-    }
+    const data = response.data;
 
     // Check if the backend already wrapped the response
     if (data && typeof data === 'object' && 'data' in data && 'status' in data) {
       // Backend already wrapped it, extract the inner data
       return {
-        status: data.status || 'success',
-        message: data.message || 'Request successful',
-        data: data.data
+        status: (data as any).status || 'success',
+        message: (data as any).message || 'Request successful',
+        data: (data as any).data
       };
     }
 
@@ -80,6 +219,15 @@ async function request<T>(
       data
     };
   } catch (err) {
+    if (err instanceof AxiosError) {
+      const errorData = err.response?.data;
+      return Promise.reject({
+        errorStatus: errorData?.errorStatus || 'error',
+        errorMessage: errorData?.errorMessage || err.message || 'Request failed',
+        errorCode: errorData?.errorCode || err.response?.status || 500,
+        timestamp: errorData?.timestamp || new Date().toISOString()
+      });
+    }
     return Promise.reject({
       errorStatus: 'error',
       errorMessage: err instanceof Error ? err.message : 'Network error',
@@ -94,28 +242,13 @@ async function graphqlRequest<T>(
   query: string,
   variables?: Record<string, any>
 ): Promise<ApiResponse<T>> {
-  const url = `${BASE_URL}/graphql`;
-
-  const config: RequestInit = {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({ query, variables }),
-  };
-
   try {
-    const response = await fetch(url, config);
-    const json = await response.json();
+    const response = await axiosInstance.post<{ data: T; errors?: any[] }>('/graphql', {
+      query,
+      variables,
+    });
 
-    if (!response.ok) {
-      return Promise.reject({
-        errorStatus: 'error',
-        errorMessage: json.errors?.[0]?.message || 'GraphQL request failed',
-        errorCode: response.status,
-        timestamp: new Date().toISOString()
-      });
-    }
+    const json = response.data;
 
     if (json.errors) {
       return Promise.reject({
@@ -132,6 +265,15 @@ async function graphqlRequest<T>(
       data: json.data
     };
   } catch (err) {
+    if (err instanceof AxiosError) {
+      const errorData = err.response?.data;
+      return Promise.reject({
+        errorStatus: 'error',
+        errorMessage: errorData?.errors?.[0]?.message || err.message || 'GraphQL request failed',
+        errorCode: err.response?.status || 500,
+        timestamp: new Date().toISOString()
+      });
+    }
     return Promise.reject({
       errorStatus: 'error',
       errorMessage: err instanceof Error ? err.message : 'Network error',
@@ -145,37 +287,157 @@ async function graphqlRequest<T>(
 export const api = {
   auth: {
     login: async (req: LoginRequest): Promise<ApiResponse<User>> => {
-      const response = await request<User>('/api/v1/users/sign-in', {
+      const response = await request<AuthResponse>('/api/auth/sign-in', {
         method: 'POST',
-        body: JSON.stringify(req),
+        data: req,
       });
 
-      // Store user data in localStorage on successful login
+      // Store user data and token on successful login
       if (response.data) {
-        storage.setUserId(response.data.id);
-        storage.setUser(response.data);
+        const authData = response.data;
+        const user: User = {
+          id: authData.user.id,
+          username: authData.user.username,
+          email: authData.user.email,
+          name: authData.user.username,
+          roles: authData.user.roles || [],
+          accessToken: authData.accessToken,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (authData.accessToken) {
+          tokenManager.setToken(authData.accessToken);
+        }
+        storage.setUserId(user.id);
+        storage.setUser(user);
+
+        return { ...response, data: user };
       }
 
-      return response;
+      return response as unknown as ApiResponse<User>;
     },
 
     register: async (req: RegisterRequest): Promise<ApiResponse<User>> => {
-      const response = await request<User>('/api/v1/users/register', {
+      const response = await request<AuthResponse>('/api/auth/register', {
         method: 'POST',
-        body: JSON.stringify(req),
+        data: req,
       });
 
-      // Store user data in localStorage on successful registration
+      // Store user data and token on successful registration
       if (response.data) {
-        storage.setUserId(response.data.id);
-        storage.setUser(response.data);
+        const authData = response.data;
+        const user: User = {
+          id: authData.user.id,
+          username: authData.user.username,
+          email: authData.user.email,
+          name: authData.user.username,
+          roles: authData.user.roles || [],
+          accessToken: authData.accessToken,
+          createdAt: new Date().toISOString(),
+          updatedAt: new Date().toISOString(),
+        };
+
+        if (authData.accessToken) {
+          tokenManager.setToken(authData.accessToken);
+        }
+        storage.setUserId(user.id);
+        storage.setUser(user);
+
+        return { ...response, data: user };
       }
 
-      return response;
+      return response as unknown as ApiResponse<User>;
     },
 
-    logout: (): void => {
-      storage.clear();
+    logout: async (): Promise<void> => {
+      try {
+        await request<void>('/api/auth/sign-out', {
+          method: 'POST',
+        });
+      } catch (error) {
+        console.error('Sign out request failed:', error);
+      } finally {
+        storage.clear();
+        tokenManager.removeToken();
+      }
+    },
+
+    refreshToken: async (): Promise<ApiResponse<AuthResponse>> => {
+      return request<AuthResponse>('/api/auth/refresh-token', {
+        method: 'POST',
+      });
+    },
+
+    // OAuth login with token
+    loginWithToken: async (token: string): Promise<ApiResponse<User>> => {
+      // Store token first for use in subsequent requests
+      tokenManager.setToken(token);
+
+      try {
+        // Fetch current user profile using the token
+        const response = await request<UserProfile>('/api/users/profile', {
+          method: 'GET',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+        });
+
+        // Store user data in localStorage
+        if (response.data) {
+          const profile = response.data;
+          const user: User = {
+            id: profile.userId,
+            username: profile.username,
+            email: profile.email,
+            name: profile.username,
+            roles: [], // Will be populated from token
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          // Try to get roles from token
+          try {
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            user.roles = payload.roles || payload.authorities || [];
+          } catch { }
+
+          storage.setUserId(user.id);
+          storage.setUser(user);
+
+          return { ...response, data: user };
+        }
+
+        return response as unknown as ApiResponse<User>;
+      } catch (error) {
+        console.log('Failed to fetch user profile from /api/users/profile, attempting fallback...');
+
+        // Fallback: Try to decode JWT and create basic user object
+        try {
+          const payload = JSON.parse(atob(token.split('.')[1]));
+          const basicUser: User = {
+            id: payload.sub || payload.userId || payload.id,
+            name: payload.name || payload.given_name || 'User',
+            email: payload.email || '',
+            username: payload.username || payload.preferred_username || payload.email || '',
+            roles: payload.roles || payload.authorities || [],
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          };
+
+          storage.setUserId(basicUser.id);
+          storage.setUser(basicUser);
+
+          return {
+            status: 'success',
+            message: 'Logged in successfully',
+            data: basicUser
+          };
+        } catch (jwtError) {
+          // If JWT decode also fails, throw original error
+          throw error;
+        }
+      }
     },
 
     // Get stored user from localStorage
@@ -185,16 +447,11 @@ export const api = {
 
     // Get user profile
     getProfile: async (userId?: string): Promise<ApiResponse<UserProfile>> => {
-      const id = userId || storage.getUserId();
-      if (!id) {
-        return Promise.reject({
-          errorStatus: 'error',
-          errorMessage: 'User not authenticated',
-          errorCode: 401,
-          timestamp: new Date().toISOString()
-        });
+      // If no userId provided, get current user's profile
+      if (!userId) {
+        return request<UserProfile>('/api/users/profile');
       }
-      return request<UserProfile>(`/api/v1/users/profile/${id}`);
+      return request<UserProfile>(`/api/users/profile/${userId}`);
     }
   },
 
@@ -263,125 +520,71 @@ export const api = {
     },
 
     getById: async (id: number): Promise<ApiResponse<Post>> => {
-      return request<Post>(`/api/v1/posts/${id}`);
+      return request<Post>(`/api/posts/${id}`);
     },
 
-    create: async (req: Omit<CreatePostRequest, 'authorId'> & { authorId?: string }): Promise<ApiResponse<Post>> => {
-      const authorId = req.authorId || storage.getUserId();
-      if (!authorId) {
-        return Promise.reject({
-          errorStatus: 'error',
-          errorMessage: 'User not authenticated',
-          errorCode: 401,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      return request<Post>('/api/v1/posts', {
+    create: async (req: CreatePostRequest): Promise<ApiResponse<Post>> => {
+      return request<Post>('/api/posts', {
         method: 'POST',
-        body: JSON.stringify({ ...req, authorId }),
+        data: req,
       });
     },
 
-    update: async (postId: number, req: Omit<UpdatePostRequest, 'authorId'>): Promise<ApiResponse<Post>> => {
-      const authorId = storage.getUserId();
-      if (!authorId) {
-        return Promise.reject({
-          errorStatus: 'error',
-          errorMessage: 'User not authenticated',
-          errorCode: 401,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      return request<Post>(`/api/v1/posts/${postId}`, {
+    update: async (postId: number, req: UpdatePostRequest): Promise<ApiResponse<Post>> => {
+      return request<Post>(`/api/posts/${postId}`, {
         method: 'PUT',
-        body: JSON.stringify({ ...req, authorId }),
+        data: req,
       });
     },
 
     delete: async (postId: number): Promise<ApiResponse<void>> => {
-      const authorId = storage.getUserId();
-      if (!authorId) {
-        return Promise.reject({
-          errorStatus: 'error',
-          errorMessage: 'User not authenticated',
-          errorCode: 401,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      return request<void>(`/api/v1/posts/${postId}`, {
+      return request<void>(`/api/posts/${postId}`, {
         method: 'DELETE',
-        body: JSON.stringify({ authorId }),
       });
     }
   },
 
   comments: {
     getByPostId: async (postId: number): Promise<ApiResponse<Comment[]>> => {
-      return request<Comment[]>(`/api/v1/comments/post/${postId}`);
+      return request<Comment[]>(`/api/comments/post/${postId}`);
     },
 
     getById: async (commentId: string): Promise<ApiResponse<Comment>> => {
-      return request<Comment>(`/api/v1/comments/${commentId}`);
+      return request<Comment>(`/api/comments/${commentId}`);
     },
 
-    create: async (req: Omit<CreateCommentRequest, 'authorId'> & { authorId?: string }): Promise<ApiResponse<Comment>> => {
-      const authorId = req.authorId || storage.getUserId();
-      if (!authorId) {
-        return Promise.reject({
-          errorStatus: 'error',
-          errorMessage: 'User not authenticated',
-          errorCode: 401,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      return request<Comment>('/api/v1/comments', {
+    create: async (req: CreateCommentRequest): Promise<ApiResponse<Comment>> => {
+      return request<Comment>('/api/comments', {
         method: 'POST',
-        body: JSON.stringify({ ...req, authorId }),
+        data: req,
       });
     },
 
     delete: async (commentId: string, postId: number): Promise<ApiResponse<void>> => {
-      const authorId = storage.getUserId();
-      if (!authorId) {
-        return Promise.reject({
-          errorStatus: 'error',
-          errorMessage: 'User not authenticated',
-          errorCode: 401,
-          timestamp: new Date().toISOString()
-        });
-      }
-
-      return request<void>(`/api/v1/comments/${commentId}`, {
+      return request<void>(`/api/comments/${commentId}`, {
         method: 'DELETE',
-        body: JSON.stringify({ authorId, postId }),
+        data: { postId },
       });
     }
   },
 
   tags: {
     getPopular: async (): Promise<ApiResponse<Tag[]>> => {
-      return request<Tag[]>('/api/v1/tags/popular');
+      return request<Tag[]>('/api/tags/popular');
     }
   },
 
   metrics: {
     getAll: async (): Promise<ApiResponse<MetricsResponse>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch metrics');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Metrics retrieved', data };
+        const response = await axiosInstance.get<MetricsResponse>('/api/metrics/performance');
+        return { status: 'success', message: 'Metrics retrieved', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to fetch metrics',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to fetch metrics',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
@@ -389,17 +592,14 @@ export const api = {
 
     getSummary: async (): Promise<ApiResponse<MetricsSummary>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance/summary`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch summary');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Summary retrieved', data };
+        const response = await axiosInstance.get<MetricsSummary>('/api/metrics/performance/summary');
+        return { status: 'success', message: 'Summary retrieved', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to fetch summary',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to fetch summary',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
@@ -407,19 +607,14 @@ export const api = {
 
     exportToLog: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance/export-log`, {
-          method: 'POST',
-        });
-        if (!response.ok) {
-          throw new Error('Failed to export metrics');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Metrics exported', data };
+        const response = await axiosInstance.post<{ status: string; message: string }>('/api/metrics/performance/export-log');
+        return { status: 'success', message: 'Metrics exported', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to export metrics',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to export metrics',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
@@ -427,19 +622,14 @@ export const api = {
 
     reset: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance/reset`, {
-          method: 'DELETE',
-        });
-        if (!response.ok) {
-          throw new Error('Failed to reset metrics');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Metrics reset', data };
+        const response = await axiosInstance.delete<{ status: string; message: string }>('/api/metrics/performance/reset');
+        return { status: 'success', message: 'Metrics reset', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to reset metrics',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to reset metrics',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
@@ -448,17 +638,14 @@ export const api = {
     // Cache metrics
     getCacheMetrics: async (): Promise<ApiResponse<CacheMetricsResponse>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance/cache`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch cache metrics');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Cache metrics retrieved', data };
+        const response = await axiosInstance.get<CacheMetricsResponse>('/api/metrics/performance/cache');
+        return { status: 'success', message: 'Cache metrics retrieved', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to fetch cache metrics',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to fetch cache metrics',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
@@ -466,17 +653,14 @@ export const api = {
 
     getCacheByName: async (cacheName: string): Promise<ApiResponse<CacheMetric>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance/cache/${cacheName}`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch cache metric');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Cache metric retrieved', data };
+        const response = await axiosInstance.get<CacheMetric>(`/api/metrics/performance/cache/${cacheName}`);
+        return { status: 'success', message: 'Cache metric retrieved', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to fetch cache metric',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to fetch cache metric',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
@@ -484,20 +668,116 @@ export const api = {
 
     getCacheSummary: async (): Promise<ApiResponse<CacheSummary>> => {
       try {
-        const response = await fetch(`${BASE_URL}/api/metrics/performance/cache/summary`);
-        if (!response.ok) {
-          throw new Error('Failed to fetch cache summary');
-        }
-        const data = await response.json();
-        return { status: 'success', message: 'Cache summary retrieved', data };
+        const response = await axiosInstance.get<CacheSummary>('/api/metrics/performance/cache/summary');
+        return { status: 'success', message: 'Cache summary retrieved', data: response.data };
       } catch (error: any) {
+        const axiosError = error as AxiosError;
         throw {
           errorStatus: 'error',
-          errorMessage: error.message || 'Failed to fetch cache summary',
-          errorCode: 500,
+          errorMessage: axiosError.message || 'Failed to fetch cache summary',
+          errorCode: axiosError.response?.status || 500,
           timestamp: new Date().toISOString()
         };
       }
+    }
+  },
+
+  // Admin endpoints (require ADMIN role)
+  admin: {
+    getStats: async (): Promise<ApiResponse<AdminStats>> => {
+      return request<AdminStats>('/api/admin/stats');
+    },
+
+    getPosts: async (
+      page = 0,
+      size = 10,
+      options?: {
+        sort?: 'id' | 'createdAt' | 'lastUpdated' | 'title';
+        order?: 'ASC' | 'DESC';
+        author?: string;
+        tags?: string[];
+        search?: string;
+      }
+    ): Promise<ApiResponse<PaginatedResponse<Post>>> => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+      });
+      if (options?.sort) params.append('sort', options.sort);
+      if (options?.order) params.append('order', options.order);
+      if (options?.author) params.append('author', options.author);
+      if (options?.tags) options.tags.forEach(tag => params.append('tags', tag));
+      if (options?.search) params.append('search', options.search);
+
+      return request<PaginatedResponse<Post>>(`/api/admin/posts?${params.toString()}`);
+    },
+
+    getPostById: async (postId: number): Promise<ApiResponse<Post>> => {
+      return request<Post>(`/api/admin/posts/${postId}`);
+    },
+
+    deletePost: async (postId: number): Promise<ApiResponse<void>> => {
+      return request<void>(`/api/admin/posts/${postId}`, {
+        method: 'DELETE',
+      });
+    },
+
+    getUsers: async (
+      page = 0,
+      size = 10,
+      options?: {
+        sort?: 'id' | 'createdAt' | 'username';
+        order?: 'ASC' | 'DESC';
+        search?: string;
+      }
+    ): Promise<ApiResponse<PaginatedResponse<AdminUser>>> => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+      });
+      if (options?.sort) params.append('sort', options.sort);
+      if (options?.order) params.append('order', options.order);
+      if (options?.search) params.append('search', options.search);
+
+      return request<PaginatedResponse<AdminUser>>(`/api/admin/users?${params.toString()}`);
+    },
+
+    getUserSummary: async (userId: string): Promise<ApiResponse<AdminUserSummary>> => {
+      return request<AdminUserSummary>(`/api/admin/users/${userId}/summary`);
+    },
+
+    getComments: async (
+      page = 0,
+      size = 10,
+      options?: {
+        sort?: 'id' | 'createdAt';
+        order?: 'ASC' | 'DESC';
+        search?: string;
+        postId?: number;
+        author?: string;
+      }
+    ): Promise<ApiResponse<PaginatedResponse<AdminComment>>> => {
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+      });
+      if (options?.sort) params.append('sort', options.sort);
+      if (options?.order) params.append('order', options.order);
+      if (options?.search) params.append('search', options.search);
+      if (options?.postId) params.append('postId', options.postId.toString());
+      if (options?.author) params.append('author', options.author);
+
+      return request<PaginatedResponse<AdminComment>>(`/api/admin/comments?${params.toString()}`);
+    },
+
+    getCommentById: async (commentId: string): Promise<ApiResponse<AdminComment>> => {
+      return request<AdminComment>(`/api/admin/comments/${commentId}`);
+    },
+
+    deleteComment: async (commentId: string): Promise<ApiResponse<void>> => {
+      return request<void>(`/api/admin/comments/${commentId}`, {
+        method: 'DELETE',
+      });
     }
   }
 };

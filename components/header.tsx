@@ -10,11 +10,11 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PenLine, User, LogOut, Menu, X, BarChart3 } from "lucide-react";
+import { PenLine, User, LogOut, Menu, X, BarChart3, Shield } from "lucide-react";
 import { useState } from "react";
 
 export function Header() {
-  const { user, logout } = useAuth();
+  const { user, logout, isAdmin } = useAuth();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
 
   return (
@@ -42,12 +42,6 @@ export function Header() {
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             All Posts
-          </Link>
-          <Link
-            href="/metrics"
-            className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-          >
-            Metrics
           </Link>
           {user ? (
             <>
@@ -77,6 +71,17 @@ export function Header() {
                       Profile
                     </Link>
                   </DropdownMenuItem>
+                  {isAdmin && (
+                    <>
+                      <DropdownMenuSeparator />
+                      <DropdownMenuItem asChild>
+                        <Link href="/admin" className="gap-2">
+                          <Shield className="h-4 w-4" />
+                          Go to Admin
+                        </Link>
+                      </DropdownMenuItem>
+                    </>
+                  )}
                   <DropdownMenuSeparator />
                   <DropdownMenuItem
                     onClick={logout}
@@ -135,13 +140,6 @@ export function Header() {
             >
               All Posts
             </Link>
-            <Link
-              href="/metrics"
-              onClick={() => setMobileMenuOpen(false)}
-              className="text-sm text-muted-foreground transition-colors hover:text-foreground"
-            >
-              Metrics
-            </Link>
             {user ? (
               <>
                 <Link
@@ -158,6 +156,16 @@ export function Header() {
                 >
                   Profile
                 </Link>
+                {isAdmin && (
+                  <Link
+                    href="/admin"
+                    onClick={() => setMobileMenuOpen(false)}
+                    className="text-sm text-primary transition-colors hover:text-primary/80 flex items-center gap-2"
+                  >
+                    <Shield className="h-4 w-4" />
+                    Go to Admin
+                  </Link>
+                )}
                 <button
                   type="button"
                   onClick={() => {

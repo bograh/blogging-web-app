@@ -16,7 +16,7 @@ function RegisterPage() {
   const router = useRouter();
   const { register, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
-  const [name, setName] = useState("");
+  const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -31,7 +31,7 @@ function RegisterPage() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (!name.trim() || !email.trim() || !password.trim()) {
+    if (!username.trim() || !email.trim() || !password.trim()) {
       toast.error("Please fill in all fields");
       return;
     }
@@ -48,7 +48,7 @@ function RegisterPage() {
 
     setIsLoading(true);
     try {
-      await register(email, password, name);
+      await register(email, password, username);
       toast.success("Account created successfully!");
       router.push("/");
     } catch (error: unknown) {
@@ -96,14 +96,14 @@ function RegisterPage() {
 
           <form onSubmit={handleSubmit} className="mt-8 space-y-5">
             <div className="space-y-2">
-              <Label htmlFor="name">Name</Label>
+              <Label htmlFor="username">Name</Label>
               <Input
-                id="name"
+                id="username"
                 type="text"
                 placeholder="Your name"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                autoComplete="name"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
+                autoComplete="username"
                 required
               />
             </div>

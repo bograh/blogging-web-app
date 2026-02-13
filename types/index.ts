@@ -1,9 +1,11 @@
 // User types
 export interface User {
-  username: any;
+  username: string;
   id: string;
   email: string;
   name: string;
+  roles: string[];
+  accessToken?: string;
   createdAt: string;
   updatedAt: string;
 }
@@ -50,7 +52,7 @@ export interface LoginRequest {
 export interface RegisterRequest {
   email: string;
   password: string;
-  name: string;
+  username: string;
 }
 
 // Post types
@@ -73,14 +75,12 @@ export interface Post {
 export interface CreatePostRequest {
   title: string;
   body: string;
-  authorId: string;
-  tags: string[];
+  tags?: string[];
 }
 
 export interface UpdatePostRequest {
   title?: string;
   body?: string;
-  authorId: string;
   tags?: string[];
 }
 
@@ -99,7 +99,6 @@ export interface Comment {
 export interface CreateCommentRequest {
   commentContent: string;
   postId: number;
-  authorId: string;
 }
 
 // Tag types
@@ -126,8 +125,8 @@ export interface PaginatedResponse<T> {
   page: number;
   size: number;
   totalElements: number;
-  totalPages: number;
-  first: boolean;
+  totalPages?: number;
+  first?: boolean;
   last: boolean;
 }
 
@@ -188,4 +187,49 @@ export interface CacheSummary {
   totalPuts: number;
   totalMisses: number;
   timestamp: string;
+}
+
+// Admin types
+export interface AdminStats {
+  totalUsers: number;
+  totalPosts: number;
+  totalComments: number;
+}
+
+export interface AdminUser {
+  id: string;
+  username: string;
+  email: string;
+  roles: string[];
+}
+
+export interface AdminUserSummary {
+  userId: string;
+  username: string;
+  email: string;
+  totalPosts: number;
+  totalComments: number;
+  roles: string[];
+  createdAt: string;
+}
+
+export interface AdminComment {
+  id: string;
+  content: string;
+  postId: number;
+  author: string;
+  createdAt: string;
+}
+
+// Auth response structure from backend
+export interface AuthResponseUser {
+  id: string;
+  username: string;
+  email: string;
+  roles: string[];
+}
+
+export interface AuthResponse {
+  user: AuthResponseUser;
+  accessToken: string;
 }
