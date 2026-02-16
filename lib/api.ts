@@ -471,12 +471,15 @@ export const api = {
       const sortDirection = options?.order || 'DESC';
 
       const query = `
-        query GetAllPosts($page: Int!, $size: Int!, $sortBy: String!, $sortDirection: String!) {
+        query GetAllPosts($page: Int!, $size: Int!, $sortBy: String!, $sortDirection: String!, $author: String, $tags: [String!], $search: String) {
           getAllPosts(
             page: $page,
             size: $size,
             sortBy: $sortBy,
-            sortDirection: $sortDirection
+            sortDirection: $sortDirection,
+            author: $author,
+            tags: $tags,
+            search: $search
           ) {
             content {
               id
@@ -499,12 +502,23 @@ export const api = {
         }
       `;
 
-      const variables = {
+      const variables: Record<string, any> = {
         page,
         size,
         sortBy,
         sortDirection,
       };
+
+      // Add optional parameters if provided
+      if (options?.author) {
+        variables.author = options.author;
+      }
+      if (options?.tags && options.tags.length > 0) {
+        variables.tags = options.tags;
+      }
+      if (options?.search) {
+        variables.search = options.search;
+      }
 
       const response = await graphqlRequest<{ getAllPosts: PaginatedResponse<Post> }>(query, variables);
 

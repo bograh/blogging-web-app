@@ -25,6 +25,7 @@ function PostsPage() {
   const [popularTags, setPopularTags] = useState<Tag[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
+  const [selectedAuthor, setSelectedAuthor] = useState("");
   const [selectedTags, setSelectedTags] = useState<string[]>([]);
   const [isFiltersOpen, setIsFiltersOpen] = useState(true);
   const [sortBy, setSortBy] = useState<
@@ -42,7 +43,7 @@ function PostsPage() {
   useEffect(() => {
     loadPosts();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [page, sortBy, sortOrder, selectedTags]);
+  }, [page, sortBy, sortOrder, selectedTags, selectedAuthor]);
 
   const loadPopularTags = async () => {
     try {
@@ -63,6 +64,7 @@ function PostsPage() {
         order: sortOrder,
         tags: selectedTags.length > 0 ? selectedTags : undefined,
         search: search || searchQuery || undefined,
+        author: selectedAuthor || undefined,
       });
       if (response.data) {
         setPosts(response.data.content);
@@ -94,6 +96,7 @@ function PostsPage() {
 
   const clearFilters = () => {
     setSearchQuery("");
+    setSelectedAuthor("");
     setSelectedTags([]);
     setSortBy("createdAt");
     setSortOrder("DESC");
@@ -121,9 +124,9 @@ function PostsPage() {
           >
             <div className="flex items-center gap-2">
               <h2 className="text-lg font-semibold text-foreground">Filters</h2>
-              {(selectedTags.length > 0 || searchQuery) && (
+              {(selectedTags.length > 0 || searchQuery || selectedAuthor) && (
                 <Badge variant="secondary" className="ml-2">
-                  {selectedTags.length + (searchQuery ? 1 : 0)} active
+                  {selectedTags.length + (searchQuery ? 1 : 0) + (selectedAuthor ? 1 : 0)} active
                 </Badge>
               )}
             </div>
@@ -151,6 +154,23 @@ function PostsPage() {
                 </div>
                 <Button type="submit">Search</Button>
               </form>
+
+              {/* Author Filter */}
+              <div className="mt-4">
+                <label htmlFor="author-filter" className="mb-2 block text-sm text-muted-foreground">
+                  Filter by author:
+                </label>
+                <Input
+                  id="author-filter"
+                  type="text"
+                  placeholder="Enter author username..."
+                  value={selectedAuthor}
+                  onChange={(e) => {
+                    setSelectedAuthor(e.target.value);
+                    setPage(0);
+                  }}
+                />
+              </div>
 
               {/* Tags */}
               <div className="mt-4">
@@ -214,7 +234,7 @@ function PostsPage() {
                   </Select>
                 </div>
 
-                {(selectedTags.length > 0 || searchQuery) && (
+                {(selectedTags.length > 0 || searchQuery || selectedAuthor) && (
                   <Button
                     variant="ghost"
                     size="sm"
