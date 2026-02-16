@@ -89,10 +89,16 @@ export function PostCard({ post }: PostCardProps) {
         {/* Meta */}
         <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
-            <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
-              <User className="h-3 w-3" />
-            </div>
-            <span>{authorName}</span>
+            <Link
+              href={`/profile/${authorName}`}
+              className="relative z-20 flex items-center gap-2 transition-colors hover:text-primary"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <div className="flex h-6 w-6 items-center justify-center rounded-full bg-secondary">
+                <User className="h-3 w-3" />
+              </div>
+              <span>{authorName}</span>
+            </Link>
             <span className="text-muted-foreground/50">·</span>
             <time dateTime={createdAt}>
               {formatDate(createdAt)}

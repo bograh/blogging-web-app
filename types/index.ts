@@ -190,10 +190,16 @@ export interface CacheSummary {
 }
 
 // Admin types
+export interface SessionStats {
+  activeSessions: number;
+  revokedTokens: number;
+}
+
 export interface AdminStats {
   totalUsers: number;
   totalPosts: number;
   totalComments: number;
+  sessionStats?: SessionStats;
 }
 
 export interface AdminUser {

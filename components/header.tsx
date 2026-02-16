@@ -66,7 +66,7 @@ export function Header() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end" className="w-48">
                   <DropdownMenuItem asChild>
-                    <Link href={`/profile/${user.id}`} className="gap-2">
+                    <Link href={`/profile/${user.username}`} className="gap-2">
                       <User className="h-4 w-4" />
                       Profile
                     </Link>
@@ -150,7 +150,7 @@ export function Header() {
                   Write a Post
                 </Link>
                 <Link
-                  href={`/profile/${user.id}`}
+                  href={`/profile/${user.username}`}
                   onClick={() => setMobileMenuOpen(false)}
                   className="text-sm text-muted-foreground transition-colors hover:text-foreground"
                 >

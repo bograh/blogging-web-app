@@ -243,18 +243,22 @@ async function graphqlRequest<T>(
   variables?: Record<string, any>
 ): Promise<ApiResponse<T>> {
   try {
+    console.log('[GraphQL] Request:', { query: query.substring(0, 100) + '...', variables });
     const response = await axiosInstance.post<{ data: T; errors?: any[] }>('/graphql', {
       query,
       variables,
     });
 
     const json = response.data;
+    console.log('[GraphQL] Response:', { hasData: !!json.data, hasErrors: !!json.errors });
 
     if (json.errors) {
+      console.error('[GraphQL] Errors:', JSON.stringify(json.errors, null, 2));
       return Promise.reject({
         errorStatus: 'error',
         errorMessage: json.errors[0]?.message || 'GraphQL error',
         errorCode: 400,
+        errors: json.errors,
         timestamp: new Date().toISOString()
       });
     }
@@ -265,6 +269,7 @@ async function graphqlRequest<T>(
       data: json.data
     };
   } catch (err) {
+    console.error('[GraphQL] Exception:', err);
     if (err instanceof AxiosError) {
       const errorData = err.response?.data;
       return Promise.reject({
@@ -352,8 +357,12 @@ export const api = {
 
     logout: async (): Promise<void> => {
       try {
+        const token = tokenManager.getToken();
         await request<void>('/api/auth/sign-out', {
           method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
         });
       } catch (error) {
         console.error('Sign out request failed:', error);
@@ -445,13 +454,9 @@ export const api = {
       return storage.getUser();
     },
 
-    // Get user profile
-    getProfile: async (userId?: string): Promise<ApiResponse<UserProfile>> => {
-      // If no userId provided, get current user's profile
-      if (!userId) {
-        return request<UserProfile>('/api/users/profile');
-      }
-      return request<UserProfile>(`/api/users/profile/${userId}`);
+    // Get user profile - only supports current user
+    getProfile: async (): Promise<ApiResponse<UserProfile>> => {
+      return request<UserProfile>('/api/users/profile');
     }
   },
 

@@ -58,6 +58,23 @@ export default function AdminDashboard() {
     },
   ];
 
+  const sessionCards = stats?.sessionStats ? [
+    {
+      title: "Active Sessions",
+      value: stats.sessionStats.activeSessions,
+      description: "Currently active user sessions",
+      color: "text-orange-500",
+      bgColor: "bg-orange-500/10",
+    },
+    {
+      title: "Revoked Tokens",
+      value: stats.sessionStats.revokedTokens,
+      description: "Total revoked access tokens",
+      color: "text-red-500",
+      bgColor: "bg-red-500/10",
+    },
+  ] : [];
+
   return (
     <div className="space-y-6">
       <div>
@@ -101,6 +118,40 @@ export default function AdminDashboard() {
           </Card>
         ))}
       </div>
+
+      {stats?.sessionStats && (
+        <div>
+          <h2 className="mb-4 text-xl font-semibold text-foreground">Session Statistics</h2>
+          <div className="grid gap-4 md:grid-cols-2">
+            {sessionCards.map((stat) => (
+              <Card key={stat.title}>
+                <CardHeader className="flex flex-row items-center justify-between pb-2">
+                  <CardTitle className="text-sm font-medium text-muted-foreground">
+                    {stat.title}
+                  </CardTitle>
+                  <div className={`rounded-md p-2 ${stat.bgColor}`}>
+                    <div className={`h-3 w-3 rounded-full ${stat.color}`} />
+                  </div>
+                </CardHeader>
+                <CardContent>
+                  {isLoading ? (
+                    <Skeleton className="h-8 w-20" />
+                  ) : (
+                    <>
+                      <div className="text-2xl font-bold text-foreground">
+                        {stat.value.toLocaleString()}
+                      </div>
+                      <p className="text-xs text-muted-foreground">
+                        {stat.description}
+                      </p>
+                    </>
+                  )}
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2">
         <Card>

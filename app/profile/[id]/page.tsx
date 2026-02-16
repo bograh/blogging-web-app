@@ -25,43 +25,84 @@ const formatDate = (dateString: string, formatStr: string) => {
 };
 
 function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
-  const { id } = use(params);
-  const { user: currentUser } = useAuth();
+  const { id: username } = use(params);
+  const { user: currentUser, isLoading: authLoading } = useAuth();
   const [profile, setProfile] = useState<UserProfile | null>(null);
   const [posts, setPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
-    loadProfile();
+    // Wait for auth to finish loading before deciding which endpoint to use
+    if (!authLoading) {
+      loadProfile();
+    }
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [id]);
+  }, [username, currentUser, authLoading]);
 
   const loadProfile = async () => {
+    setIsLoading(true);
     try {
-      const response = await api.auth.getProfile(id);
-      if (response.data) {
-        setProfile(response.data);
-        // Convert recentPosts from profile response to Post format
-        if (response.data.recentPosts && response.data.recentPosts.length > 0) {
-          const convertedPosts: Post[] = response.data.recentPosts.map((post) => ({
-            id: post.id,
-            title: post.title,
-            body: post.body,
-            authorId: post.authorId,
-            authorName: post.author,
-            tags: post.tags,
-            createdAt: post.postedAt,
-            lastUpdated: post.lastUpdated,
-            commentsCount: post.totalComments,
-          }));
-          setPosts(convertedPosts);
-        } else {
-          // Fallback to separate API call if posts not in profile
-          loadUserPosts();
+      // Check if viewing own profile
+      const isOwnProfile = currentUser && username === currentUser.username;
+      console.log('[Profile] Loading profile for:', username);
+      console.log('[Profile] Current user:', currentUser?.username);
+      console.log('[Profile] Is own profile:', isOwnProfile);
+
+      if (isOwnProfile) {
+        console.log('[Profile] Using REST endpoint for own profile');
+        const response = await api.auth.getProfile();
+        if (response.data) {
+          setProfile(response.data);
+          // Convert recentPosts from profile response to Post format
+          if (response.data.recentPosts && response.data.recentPosts.length > 0) {
+            const convertedPosts: Post[] = response.data.recentPosts.map((post) => ({
+              id: post.id,
+              title: post.title,
+              body: post.body,
+              authorId: post.authorId,
+              authorName: post.author,
+              tags: post.tags,
+              createdAt: post.postedAt,
+              lastUpdated: post.lastUpdated,
+              commentsCount: post.totalComments,
+            }));
+            setPosts(convertedPosts);
+          } else {
+            // Fallback to separate API call if posts not in profile
+            loadUserPosts();
+          }
+        }
+      } else {
+        // Not current user - load profile from posts data using GraphQL getAllPosts
+        console.log('[Profile] Loading other user profile from posts');
+        const postsResponse = await api.posts.getAll(0, 10, {
+          author: username,
+          sort: "createdAt",
+          order: "DESC",
+        });
+
+        if (postsResponse.data) {
+          setPosts(postsResponse.data.content);
+
+          // Create a basic profile from posts data
+          if (postsResponse.data.content.length > 0) {
+            const firstPost = postsResponse.data.content[0];
+            const authorName = typeof firstPost.author === 'object' ? firstPost.author.username : firstPost.author || username;
+            setProfile({
+              userId: firstPost.authorId || '',
+              username: authorName,
+              email: '',
+              totalPosts: postsResponse.data.totalElements,
+              totalComments: 0,
+            });
+          } else {
+            // No posts found - user might not exist or has no posts
+            console.warn("[Profile] No posts found for user:", username);
+          }
         }
       }
     } catch (error) {
-      console.log("Error loading profile:", error);
+      console.error("[Profile] Error loading profile:", error);
     } finally {
       setIsLoading(false);
     }
@@ -70,7 +111,7 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
   const loadUserPosts = async () => {
     try {
       const response = await api.posts.getAll(0, 10, {
-        author: id,
+        author: username,
         sort: "createdAt",
         order: "DESC",
       });
