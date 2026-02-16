@@ -51,16 +51,14 @@ function RegisterPage() {
       await register(email, password, username);
       toast.success("Account created successfully!");
       router.push("/");
-    } catch (error: unknown) {
-      console.log("Register error:", error);
-      const errorMessage =
-        error &&
-        typeof error === "object" &&
-        "errorMessage" in error &&
-        typeof error.errorMessage === "string"
-          ? error.errorMessage
-          : "Failed to create account";
-      toast.error(errorMessage);
+    } catch (error: any) {
+      // Handle validation errors with field-specific messages
+      if (error?.data && typeof error.data === 'object') {
+        const fieldErrors = Object.values(error.data).join('. ');
+        toast.error(fieldErrors || error?.errorMessage || "Failed to create account");
+      } else {
+        toast.error(error?.errorMessage || "Failed to create account");
+      }
     } finally {
       setIsLoading(false);
     }

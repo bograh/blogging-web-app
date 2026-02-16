@@ -44,12 +44,8 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
     try {
       // Check if viewing own profile
       const isOwnProfile = currentUser && username === currentUser.username;
-      console.log('[Profile] Loading profile for:', username);
-      console.log('[Profile] Current user:', currentUser?.username);
-      console.log('[Profile] Is own profile:', isOwnProfile);
 
       if (isOwnProfile) {
-        console.log('[Profile] Using REST endpoint for own profile');
         const response = await api.auth.getProfile();
         if (response.data) {
           setProfile(response.data);
@@ -74,7 +70,6 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
         }
       } else {
         // Not current user - load profile from posts data using GraphQL getAllPosts
-        console.log('[Profile] Loading other user profile from posts');
         const postsResponse = await api.posts.getAll(0, 10, {
           author: username,
           sort: "createdAt",
@@ -97,12 +92,11 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
             });
           } else {
             // No posts found - user might not exist or has no posts
-            console.warn("[Profile] No posts found for user:", username);
           }
         }
       }
     } catch (error) {
-      console.error("[Profile] Error loading profile:", error);
+      // Silently handle errors - profile will show as not found
     } finally {
       setIsLoading(false);
     }

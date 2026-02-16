@@ -38,23 +38,38 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }, []);
 
   const login = async (email: string, password: string) => {
-    const response = await api.auth.login({ email, password });
-    if (response.data) {
-      setUser(response.data);
+    try {
+      const response = await api.auth.login({ email, password });
+      if (response.data) {
+        setUser(response.data);
+      }
+    } catch (error) {
+      // Re-throw the error so it can be caught in the login page
+      throw error;
     }
   };
 
   const register = async (email: string, password: string, username: string) => {
-    const response = await api.auth.register({ email, password, username });
-    if (response.data) {
-      setUser(response.data);
+    try {
+      const response = await api.auth.register({ email, password, username });
+      if (response.data) {
+        setUser(response.data);
+      }
+    } catch (error) {
+      // Re-throw the error so it can be caught in the register page
+      throw error;
     }
   };
 
   const loginWithToken = async (token: string) => {
-    const response = await api.auth.loginWithToken(token);
-    if (response.data) {
-      setUser(response.data);
+    try {
+      const response = await api.auth.loginWithToken(token);
+      if (response.data) {
+        setUser(response.data);
+      }
+    } catch (error) {
+      // Re-throw the error so it can be caught by the caller
+      throw error;
     }
   };
 

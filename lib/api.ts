@@ -3,7 +3,10 @@ import {
   User, LoginRequest, RegisterRequest, Post, CreatePostRequest, UpdatePostRequest,
   ApiResponse, PaginatedResponse, Comment, CreateCommentRequest,
   MetricsResponse, MetricsSummary, UserProfile, Tag, CacheMetricsResponse,
-  CacheMetric, CacheSummary, AdminStats, AdminUser, AdminUserSummary, AdminComment, AuthResponse
+  CacheMetric, CacheSummary, AdminStats, AdminUser, AdminUserSummary, AdminComment, AuthResponse,
+  MethodMetric, PerformanceSnapshot, CacheSnapshot, PerformanceComparison,
+  SecurityStats, SecurityEvent, SecurityEventType, BlockedStatus,
+  SimulationResult, SimulationMethodResult, SimulationMethodType
 } from '@/types';
 
 // --- API CONFIGURATION ---
@@ -141,7 +144,10 @@ axiosInstance.interceptors.response.use(
   async (error: AxiosError) => {
     const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
 
-    if (error.response?.status === 401 && !originalRequest._retry) {
+    // Skip token refresh for auth endpoints (login/register/etc)
+    const isAuthEndpoint = originalRequest?.url?.includes('/api/auth/');
+
+    if (error.response?.status === 401 && !originalRequest._retry && !isAuthEndpoint) {
       originalRequest._retry = true;
 
       if (!isRefreshing) {
@@ -243,14 +249,12 @@ async function graphqlRequest<T>(
   variables?: Record<string, any>
 ): Promise<ApiResponse<T>> {
   try {
-    console.log('[GraphQL] Request:', { query: query.substring(0, 100) + '...', variables });
     const response = await axiosInstance.post<{ data: T; errors?: any[] }>('/graphql', {
       query,
       variables,
     });
 
     const json = response.data;
-    console.log('[GraphQL] Response:', { hasData: !!json.data, hasErrors: !!json.errors });
 
     if (json.errors) {
       console.error('[GraphQL] Errors:', JSON.stringify(json.errors, null, 2));
@@ -269,7 +273,6 @@ async function graphqlRequest<T>(
       data: json.data
     };
   } catch (err) {
-    console.error('[GraphQL] Exception:', err);
     if (err instanceof AxiosError) {
       const errorData = err.response?.data;
       return Promise.reject({
@@ -593,114 +596,6 @@ export const api = {
     }
   },
 
-  metrics: {
-    getAll: async (): Promise<ApiResponse<MetricsResponse>> => {
-      try {
-        const response = await axiosInstance.get<MetricsResponse>('/api/metrics/performance');
-        return { status: 'success', message: 'Metrics retrieved', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to fetch metrics',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    },
-
-    getSummary: async (): Promise<ApiResponse<MetricsSummary>> => {
-      try {
-        const response = await axiosInstance.get<MetricsSummary>('/api/metrics/performance/summary');
-        return { status: 'success', message: 'Summary retrieved', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to fetch summary',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    },
-
-    exportToLog: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
-      try {
-        const response = await axiosInstance.post<{ status: string; message: string }>('/api/metrics/performance/export-log');
-        return { status: 'success', message: 'Metrics exported', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to export metrics',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    },
-
-    reset: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
-      try {
-        const response = await axiosInstance.delete<{ status: string; message: string }>('/api/metrics/performance/reset');
-        return { status: 'success', message: 'Metrics reset', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to reset metrics',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    },
-
-    // Cache metrics
-    getCacheMetrics: async (): Promise<ApiResponse<CacheMetricsResponse>> => {
-      try {
-        const response = await axiosInstance.get<CacheMetricsResponse>('/api/metrics/performance/cache');
-        return { status: 'success', message: 'Cache metrics retrieved', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to fetch cache metrics',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    },
-
-    getCacheByName: async (cacheName: string): Promise<ApiResponse<CacheMetric>> => {
-      try {
-        const response = await axiosInstance.get<CacheMetric>(`/api/metrics/performance/cache/${cacheName}`);
-        return { status: 'success', message: 'Cache metric retrieved', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to fetch cache metric',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    },
-
-    getCacheSummary: async (): Promise<ApiResponse<CacheSummary>> => {
-      try {
-        const response = await axiosInstance.get<CacheSummary>('/api/metrics/performance/cache/summary');
-        return { status: 'success', message: 'Cache summary retrieved', data: response.data };
-      } catch (error: any) {
-        const axiosError = error as AxiosError;
-        throw {
-          errorStatus: 'error',
-          errorMessage: axiosError.message || 'Failed to fetch cache summary',
-          errorCode: axiosError.response?.status || 500,
-          timestamp: new Date().toISOString()
-        };
-      }
-    }
-  },
-
   // Admin endpoints (require ADMIN role)
   admin: {
     getStats: async (): Promise<ApiResponse<AdminStats>> => {
@@ -795,6 +690,206 @@ export const api = {
 
     deleteComment: async (commentId: string): Promise<ApiResponse<void>> => {
       return request<void>(`/api/admin/comments/${commentId}`, {
+        method: 'DELETE',
+      });
+    }
+  },
+
+  // Performance Metrics endpoints (require ADMIN role)
+  metrics: {
+    // Performance Metrics
+    getPerformanceMetrics: async (): Promise<ApiResponse<MetricsResponse>> => {
+      return request<MetricsResponse>('/api/metrics/performance');
+    },
+
+    getMethodMetric: async (methodName: string): Promise<ApiResponse<MethodMetric>> => {
+      return request<MethodMetric>(`/api/metrics/performance/method/${encodeURIComponent(methodName)}`);
+    },
+
+    getPerformanceSummary: async (): Promise<ApiResponse<MetricsSummary>> => {
+      return request<MetricsSummary>('/api/metrics/performance/summary');
+    },
+
+    resetPerformanceMetrics: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/metrics/performance/reset', {
+        method: 'DELETE',
+      });
+    },
+
+    exportPerformanceLog: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/metrics/performance/export-log', {
+        method: 'POST',
+      });
+    },
+
+    exportAllMetrics: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/metrics/performance/export-all', {
+        method: 'POST',
+      });
+    },
+
+    // Cache Metrics
+    getCacheMetrics: async (): Promise<ApiResponse<CacheMetricsResponse>> => {
+      return request<CacheMetricsResponse>('/api/metrics/performance/cache');
+    },
+
+    getCacheMetric: async (cacheName: string): Promise<ApiResponse<CacheMetric>> => {
+      return request<CacheMetric>(`/api/metrics/performance/cache/${cacheName}`);
+    },
+
+    getCacheSummary: async (): Promise<ApiResponse<CacheSummary>> => {
+      return request<CacheSummary>('/api/metrics/performance/cache/summary');
+    },
+
+    resetCacheMetrics: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/metrics/performance/cache/reset', {
+        method: 'DELETE',
+      });
+    },
+
+    exportCacheLog: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/metrics/performance/cache/export-log', {
+        method: 'POST',
+      });
+    },
+
+    // Comparison
+    getPreCacheFiles: async (): Promise<ApiResponse<string[]>> => {
+      return request<string[]>('/api/metrics/performance/comparison/pre-cache-files');
+    },
+
+    getComparison: async (fileName?: string): Promise<ApiResponse<PerformanceComparison>> => {
+      const url = fileName
+        ? `/api/metrics/performance/comparison/${encodeURIComponent(fileName)}`
+        : '/api/metrics/performance/comparison';
+      return request<PerformanceComparison>(url);
+    },
+
+    // Repository-Driven Comparison (Recommended)
+    saveBaseline: async (): Promise<ApiResponse<PerformanceSnapshot>> => {
+      return request<PerformanceSnapshot>('/api/metrics/performance/baseline', {
+        method: 'POST',
+      });
+    },
+
+    savePostCache: async (): Promise<ApiResponse<PerformanceSnapshot>> => {
+      return request<PerformanceSnapshot>('/api/metrics/performance/postcache', {
+        method: 'POST',
+      });
+    },
+
+    getLatestBaseline: async (): Promise<ApiResponse<PerformanceSnapshot>> => {
+      return request<PerformanceSnapshot>('/api/metrics/performance/baseline/latest');
+    },
+
+    getLatestPostCache: async (): Promise<ApiResponse<PerformanceSnapshot>> => {
+      return request<PerformanceSnapshot>('/api/metrics/performance/postcache/latest');
+    },
+
+    getBaselineHistory: async (limit = 10): Promise<ApiResponse<PerformanceSnapshot[]>> => {
+      return request<PerformanceSnapshot[]>(`/api/metrics/performance/baseline/history?limit=${limit}`);
+    },
+
+    getPostCacheHistory: async (limit = 10): Promise<ApiResponse<PerformanceSnapshot[]>> => {
+      return request<PerformanceSnapshot[]>(`/api/metrics/performance/postcache/history?limit=${limit}`);
+    },
+
+    getDatabaseComparison: async (): Promise<ApiResponse<PerformanceComparison>> => {
+      return request<PerformanceComparison>('/api/metrics/performance/comparison/database');
+    },
+
+    compareSnapshots: async (preCacheId: string, postCacheId: string): Promise<ApiResponse<PerformanceComparison>> => {
+      return request<PerformanceComparison>(`/api/metrics/performance/comparison/database/${preCacheId}/${postCacheId}`);
+    },
+
+    // Persistence
+    savePerformanceMetrics: async (snapshotType: 'MANUAL' | 'SCHEDULED' | 'PRE_CACHE' | 'POST_CACHE' = 'MANUAL'): Promise<ApiResponse<PerformanceSnapshot>> => {
+      return request<PerformanceSnapshot>(`/api/metrics/performance/save?snapshotType=${snapshotType}`, {
+        method: 'POST',
+      });
+    },
+
+    saveCacheMetrics: async (snapshotType: 'MANUAL' | 'SCHEDULED' | 'PRE_CACHE' | 'POST_CACHE' = 'MANUAL'): Promise<ApiResponse<CacheSnapshot>> => {
+      return request<CacheSnapshot>(`/api/metrics/performance/cache/save?snapshotType=${snapshotType}`, {
+        method: 'POST',
+      });
+    },
+
+    saveAllMetrics: async (snapshotType: 'MANUAL' | 'SCHEDULED' | 'PRE_CACHE' | 'POST_CACHE' = 'MANUAL'): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>(`/api/metrics/performance/save-all?snapshotType=${snapshotType}`, {
+        method: 'POST',
+      });
+    },
+
+    getPerformanceHistory: async (limit = 10): Promise<ApiResponse<PerformanceSnapshot[]>> => {
+      return request<PerformanceSnapshot[]>(`/api/metrics/performance/history?limit=${limit}`);
+    },
+
+    getCacheHistory: async (limit = 10): Promise<ApiResponse<CacheSnapshot[]>> => {
+      return request<CacheSnapshot[]>(`/api/metrics/performance/cache/history?limit=${limit}`);
+    },
+
+    // Cache Performance Simulation
+    runSimulation: async (): Promise<ApiResponse<SimulationResult>> => {
+      return request<SimulationResult>('/api/metrics/performance/simulation/run', {
+        method: 'POST',
+      });
+    },
+
+    simulateMethod: async (methodType: SimulationMethodType, resourceId?: number): Promise<ApiResponse<SimulationMethodResult>> => {
+      const url = resourceId
+        ? `/api/metrics/performance/simulation/method/${methodType}?resourceId=${resourceId}`
+        : `/api/metrics/performance/simulation/method/${methodType}`;
+      return request<SimulationMethodResult>(url, {
+        method: 'POST',
+      });
+    },
+
+    simulateGetAllPosts: async (): Promise<ApiResponse<SimulationMethodResult>> => {
+      return request<SimulationMethodResult>('/api/metrics/performance/simulation/getAllPosts', {
+        method: 'POST',
+      });
+    },
+
+    simulateGetPostById: async (postId: number): Promise<ApiResponse<SimulationMethodResult>> => {
+      return request<SimulationMethodResult>(`/api/metrics/performance/simulation/getPostById/${postId}`, {
+        method: 'POST',
+      });
+    },
+
+    simulateGetCommentsByPostId: async (postId: number): Promise<ApiResponse<SimulationMethodResult>> => {
+      return request<SimulationMethodResult>(`/api/metrics/performance/simulation/getCommentsByPostId/${postId}`, {
+        method: 'POST',
+      });
+    },
+
+    simulateGetPopularTags: async (): Promise<ApiResponse<SimulationMethodResult>> => {
+      return request<SimulationMethodResult>('/api/metrics/performance/simulation/getPopularTags', {
+        method: 'POST',
+      });
+    }
+  },
+
+  // Security Audit endpoints (require ADMIN role)
+  security: {
+    getStats: async (): Promise<ApiResponse<SecurityStats>> => {
+      return request<SecurityStats>('/api/security/audit/stats');
+    },
+
+    getEvents: async (page = 0, size = 20): Promise<ApiResponse<PaginatedResponse<SecurityEvent>>> => {
+      return request<PaginatedResponse<SecurityEvent>>(`/api/security/audit/events?page=${page}&size=${size}`);
+    },
+
+    getEventsByType: async (eventType: SecurityEventType, page = 0, size = 20): Promise<ApiResponse<PaginatedResponse<SecurityEvent>>> => {
+      return request<PaginatedResponse<SecurityEvent>>(`/api/security/audit/events/${eventType}?page=${page}&size=${size}`);
+    },
+
+    checkBlockedIp: async (ipAddress: string): Promise<ApiResponse<BlockedStatus>> => {
+      return request<BlockedStatus>(`/api/security/audit/blocked/${ipAddress}`);
+    },
+
+    clearTracking: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/security/audit/tracking/clear', {
         method: 'DELETE',
       });
     }
