@@ -38,11 +38,11 @@ const sidebarItems = [
     href: "/admin/comments",
     icon: MessageSquare,
   },
-  {
+  /*{
     title: "Metrics",
     href: "/admin/metrics",
     icon: BarChart3,
-  },
+  },*/
 ];
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {
