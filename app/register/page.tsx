@@ -16,6 +16,7 @@ function RegisterPage() {
   const router = useRouter();
   const { register, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState("");
   const [username, setUsername] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -30,19 +31,20 @@ function RegisterPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
 
     if (!username.trim() || !email.trim() || !password.trim()) {
-      toast.error("Please fill in all fields");
+      setFormError("Please fill in all fields");
       return;
     }
 
     if (password !== confirmPassword) {
-      toast.error("Passwords do not match");
+      setFormError("Passwords do not match");
       return;
     }
 
     if (password.length < 6) {
-      toast.error("Password must be at least 6 characters");
+      setFormError("Password must be at least 8 characters");
       return;
     }
 
@@ -52,13 +54,13 @@ function RegisterPage() {
       toast.success("Account created successfully!");
       router.push("/");
     } catch (error: any) {
-      // Handle validation errors with field-specific messages
-      if (error?.data && typeof error.data === 'object') {
-        const fieldErrors = Object.values(error.data).join('. ');
-        toast.error(fieldErrors || error?.errorMessage || "Failed to create account");
-      } else {
-        toast.error(error?.errorMessage || "Failed to create account");
-      }
+      const message =
+        typeof error?.errorMessage === "string"
+          ? error.errorMessage
+          : error?.errorMessage && typeof error.errorMessage === "object"
+            ? Object.values(error.errorMessage).join(". ")
+            : "Failed to create account";
+      setFormError(message || "Failed to create account");
     } finally {
       setIsLoading(false);
     }
@@ -131,7 +133,7 @@ function RegisterPage() {
                 required
               />
               <p className="text-xs text-muted-foreground">
-                Must be at least 6 characters
+                Must be at least 8 characters
               </p>
             </div>
 
@@ -147,6 +149,12 @@ function RegisterPage() {
                 required
               />
             </div>
+
+            {formError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {formError}
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (

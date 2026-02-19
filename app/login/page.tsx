@@ -16,6 +16,7 @@ function LoginPage() {
   const router = useRouter();
   const { login, user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
+  const [formError, setFormError] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
 
@@ -28,9 +29,10 @@ function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
 
     if (!email.trim() || !password.trim()) {
-      toast.error("Please fill in all fields");
+      setFormError("Please fill in all fields");
       return;
     }
 
@@ -40,13 +42,13 @@ function LoginPage() {
       toast.success("Welcome back!");
       router.push("/");
     } catch (error: any) {
-      // Handle validation errors with field-specific messages
-      if (error?.data && typeof error.data === 'object') {
-        const fieldErrors = Object.values(error.data).join('. ');
-        toast.error(fieldErrors || error?.errorMessage || "Invalid email or password");
-      } else {
-        toast.error(error?.errorMessage || "Invalid email or password");
-      }
+      const message =
+        typeof error?.errorMessage === "string"
+          ? error.errorMessage
+          : error?.errorMessage && typeof error.errorMessage === "object"
+            ? Object.values(error.errorMessage).join(". ")
+            : "Invalid email or password";
+      setFormError(message || "Invalid email or password");
     } finally {
       setIsLoading(false);
     }
@@ -106,6 +108,12 @@ function LoginPage() {
                 required
               />
             </div>
+
+            {formError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {formError}
+              </div>
+            )}
 
             <Button type="submit" className="w-full" disabled={isLoading}>
               {isLoading ? (
