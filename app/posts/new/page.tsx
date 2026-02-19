@@ -20,6 +20,7 @@ function NewPostPage() {
   const router = useRouter();
   const { user, isLoading: isAuthLoading } = useAuth();
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState("");
   const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
@@ -46,9 +47,10 @@ function NewPostPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
+    setFormError("");
 
     if (!title.trim() || !content.trim()) {
-      toast.error("Please fill in title and content");
+      setFormError("Please fill in title and content");
       return;
     }
 
@@ -69,10 +71,12 @@ function NewPostPage() {
         error &&
         typeof error === "object" &&
         "errorMessage" in error &&
-        typeof error.errorMessage === "string"
-          ? error.errorMessage
+        (typeof error.errorMessage === "string" || typeof error.errorMessage === "object")
+          ? typeof error.errorMessage === "string"
+            ? error.errorMessage
+            : Object.values(error.errorMessage as Record<string, string>).join(". ")
           : "Failed to create post";
-      toast.error(errorMessage);
+      setFormError(errorMessage || "Failed to create post");
     } finally {
       setIsSubmitting(false);
     }
@@ -190,6 +194,12 @@ function NewPostPage() {
               required
             />
           </div>
+
+          {formError && (
+            <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+              {formError}
+            </div>
+          )}
 
           {/* Actions */}
           <div className="flex items-center justify-end gap-3 pt-4">

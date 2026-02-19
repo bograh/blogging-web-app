@@ -43,7 +43,7 @@ function RegisterPage() {
       return;
     }
 
-    if (password.length < 6) {
+    if (password.length < 8) {
       setFormError("Password must be at least 8 characters");
       return;
     }

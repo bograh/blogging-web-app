@@ -77,6 +77,8 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [isDeleting, setIsDeleting] = useState(false);
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
+  const [commentError, setCommentError] = useState("");
+  const [commentDeleteError, setCommentDeleteError] = useState("");
   const [showGifPicker, setShowGifPicker] = useState(false);
   const [gifSearch, setGifSearch] = useState("");
   const [gifs, setGifs] = useState<any[]>([]);
@@ -129,7 +131,17 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
 
   const handleSubmitComment = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newComment.trim() || !user) return;
+    setCommentError("");
+
+    if (!user) {
+      setCommentError("Please sign in to comment");
+      return;
+    }
+
+    if (!newComment.trim()) {
+      setCommentError("Comment cannot be empty");
+      return;
+    }
 
     setIsSubmittingComment(true);
     try {
@@ -140,24 +152,38 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
       if (response.data) {
         setComments((prev) => [response.data!, ...prev]);
         setNewComment("");
+        setCommentError("");
         toast.success("Comment added");
       }
-    } catch (error) {
+    } catch (error: any) {
       console.log("Error adding comment:", error);
-      toast.error("Failed to add comment");
+      const errorMessage =
+        typeof error?.errorMessage === "string"
+          ? error.errorMessage
+          : error?.errorMessage && typeof error.errorMessage === "object"
+            ? Object.values(error.errorMessage).join(". ")
+            : "Failed to add comment";
+      setCommentError(errorMessage || "Failed to add comment");
     } finally {
       setIsSubmittingComment(false);
     }
   };
 
   const handleDeleteComment = async (commentId: string) => {
+    setCommentDeleteError("");
     try {
       await api.comments.delete(commentId, Number(id));
       setComments((prev) => prev.filter((c) => c.id !== commentId));
       toast.success("Comment deleted");
-    } catch (error) {
+    } catch (error: any) {
       console.log("Error deleting comment:", error);
-      toast.error("Failed to delete comment");
+      const errorMessage =
+        typeof error?.errorMessage === "string"
+          ? error.errorMessage
+          : error?.errorMessage && typeof error.errorMessage === "object"
+            ? Object.values(error.errorMessage).join(". ")
+            : "Failed to delete comment";
+      setCommentDeleteError(errorMessage || "Failed to delete comment");
     }
   };
 
@@ -373,13 +399,21 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
                       variant="ghost"
                       size="sm"
                       className="absolute top-1 right-1 h-6 w-6 p-0 bg-background/80 hover:bg-background"
-                      onClick={() => setNewComment("")}
+                      onClick={() => {
+                        setNewComment("");
+                        setCommentError("");
+                      }}
                     >
                       <XIcon className="h-4 w-4" />
                     </Button>
                   </div>
                 )}
               </div>
+              {commentError && (
+                <div className="mt-3 rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                  {commentError}
+                </div>
+              )}
               <div className="mt-3 flex justify-between items-center">
                 <Button
                   type="button"
@@ -486,6 +520,11 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
 
           {/* Comments List */}
           <div className="mt-8 space-y-6">
+            {commentDeleteError && (
+              <div className="rounded-md bg-destructive/10 p-3 text-sm text-destructive">
+                {commentDeleteError}
+              </div>
+            )}
             {comments.length === 0 ? (
               <p className="text-center text-muted-foreground">
                 No comments yet. Be the first to comment!
