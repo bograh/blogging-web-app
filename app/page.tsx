@@ -145,7 +145,7 @@ function HomePage() {
               </span>
             </div>
             <p className="text-sm text-muted-foreground">
-              Built with Next.js and love
+              Built with Next.js
             </p>
           </div>
         </div>
