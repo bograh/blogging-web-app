@@ -51,19 +51,19 @@ export const tokenManager = {
 };
 
 // --- REFRESH TOKEN LOGIC ---
-let isRefreshing = false;
+export let isRefreshing = false;
 let refreshSubscribers: ((token: string) => void)[] = [];
 
-const subscribeTokenRefresh = (cb: (token: string) => void) => {
+export const subscribeTokenRefresh = (cb: (token: string) => void) => {
   refreshSubscribers.push(cb);
 };
 
-const onTokenRefreshed = (token: string) => {
+export const onTokenRefreshed = (token: string) => {
   refreshSubscribers.forEach(cb => cb(token));
   refreshSubscribers = [];
 };
 
-const refreshAccessToken = async (): Promise<string | null> => {
+export const refreshAccessToken = async (): Promise<string | null> => {
   try {
     const response = await axios.post<{ status: string; message: string; data: AuthResponse }>(
       `${BASE_URL}/api/auth/refresh-token`,

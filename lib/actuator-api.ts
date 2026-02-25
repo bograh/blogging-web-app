@@ -1,4 +1,4 @@
-import axios from 'axios';
+import axios, { AxiosError, InternalAxiosRequestConfig } from 'axios';
 import type {
     ActuatorHealthResponse,
     ActuatorMetricResponse,
@@ -8,7 +8,15 @@ import type {
     DbConnectionPoolMetrics,
     LogEventCounts,
     EndpointBreakdown,
+    ServerUptime,
 } from '@/types/actuator';
+import {
+    tokenManager,
+    refreshAccessToken,
+    isRefreshing,
+    subscribeTokenRefresh,
+    onTokenRefreshed
+} from '@/lib/api';
 
 // --- CONFIGURATION ---
 export const ACTUATOR_BASE_URL =
@@ -18,11 +26,62 @@ const BYTES_PER_MB = 1_048_576;
 
 const actuatorClient = axios.create({
     baseURL: ACTUATOR_BASE_URL,
-    timeout: 10_000,
+    timeout: 15_000,
     withCredentials: true,
 });
 
+// Request interceptor: add auth header and proactively check for expiration
+actuatorClient.interceptors.request.use(async (config: InternalAxiosRequestConfig) => {
+    let token = tokenManager.getToken();
+
+    // Proactive refresh before the token actually expires
+    if (token && tokenManager.isTokenExpired(token)) {
+        if (!isRefreshing) {
+            // Need to cast to any because of how 'let' exports work or just use the local state if it were shared
+            // But importing from api.ts means we share the same state.
+            // However, we can't re-assign isRefreshing because it's a let-export from another module (read-only)
+            // So we have to rely on the shared logic in api.ts to handle the state.
+            // Wait, let exports are read-only in the importing module.
+
+            const newToken = await refreshAccessToken();
+            if (newToken) {
+                token = newToken;
+            }
+        } else {
+            token = await new Promise<string>((resolve) => {
+                subscribeTokenRefresh(resolve);
+            });
+        }
+    }
+
+    if (token) {
+        config.headers.set('Authorization', `Bearer ${token}`);
+    }
+    return config;
+});
+
+// Response interceptor: handle reactive 401 errors
+actuatorClient.interceptors.response.use(
+    (response) => response,
+    async (error: AxiosError) => {
+        const originalRequest = error.config as InternalAxiosRequestConfig & { _retry?: boolean };
+
+        if (error.response?.status === 401 && !originalRequest._retry) {
+            originalRequest._retry = true;
+
+            const newToken = await refreshAccessToken();
+            if (newToken) {
+                originalRequest.headers.set('Authorization', `Bearer ${newToken}`);
+                return actuatorClient(originalRequest);
+            }
+        }
+
+        return Promise.reject(error);
+    }
+);
+
 // --- LOW-LEVEL FETCH ---
+
 
 async function fetchMetric(metricName: string, tags?: string): Promise<ActuatorMetricResponse> {
     const url = tags ? `/metrics/${metricName}?tag=${tags}` : `/metrics/${metricName}`;
@@ -80,6 +139,36 @@ export async function fetchJvmMetrics(): Promise<JvmMetrics> {
         threads: {
             liveThreads: Math.round(measurementValue(liveThreads)),
         },
+    };
+}
+
+// --- SERVER UPTIME ---
+
+export async function fetchServerUptime(): Promise<ServerUptime> {
+    const [startTime, uptime] = await Promise.all([
+        fetchMetric('process.start.time'),
+        fetchMetric('process.uptime'),
+    ]);
+
+    const startTimeSeconds = measurementValue(startTime);
+    const uptimeSeconds = measurementValue(uptime);
+
+    // Format uptime into human-readable string (e.g., "2d 4h 15m 30s")
+    const d = Math.floor(uptimeSeconds / (3600 * 24));
+    const h = Math.floor((uptimeSeconds % (3600 * 24)) / 3600);
+    const m = Math.floor((uptimeSeconds % 3600) / 60);
+    const s = Math.floor(uptimeSeconds % 60);
+
+    const parts = [];
+    if (d > 0) parts.push(`${d}d`);
+    if (h > 0) parts.push(`${h}h`);
+    if (m > 0 || h > 0) parts.push(`${m}m`);
+    parts.push(`${s}s`);
+
+    return {
+        startTimeMs: startTimeSeconds * 1000,
+        uptimeSeconds,
+        uptimeFormatted: parts.join(' '),
     };
 }
 

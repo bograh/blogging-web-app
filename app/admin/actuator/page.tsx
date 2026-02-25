@@ -10,6 +10,7 @@ import { DbConnectionPoolPanel } from "@/components/admin/actuator/db-connection
 import { LogErrorRatePanel } from "@/components/admin/actuator/log-error-rate-panel";
 import { HttpTracesPanel } from "@/components/admin/actuator/http-traces-panel";
 import { HttpExchangesPanel } from "@/components/admin/actuator/http-exchanges-panel";
+import { ServerUptimePanel } from "@/components/admin/actuator/server-uptime-panel";
 import { ACTUATOR_BASE_URL } from "@/lib/actuator-api";
 
 export default function ActuatorMonitoringPage() {
@@ -56,8 +57,9 @@ export default function ActuatorMonitoringPage() {
                 </p>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-4">
+            <div className="grid gap-5 md:grid-cols-5">
                 <HealthStatusPanel refreshSignal={refreshSignal} />
+                <ServerUptimePanel refreshSignal={refreshSignal} />
                 <JvmMetricsPanel refreshSignal={refreshSignal} />
                 <HttpRequestStatsPanel refreshSignal={refreshSignal} />
                 {/* <LogErrorRatePanel refreshSignal={refreshSignal} /> */}

@@ -65,6 +65,14 @@ export interface HttpRequestStats {
     requestRate: number;
 }
 
+// --- Server Uptime types ---
+
+export interface ServerUptime {
+    startTimeMs: number;
+    uptimeSeconds: number;
+    uptimeFormatted: string;
+}
+
 // --- HikariCP Connection Pool types ---
 
 export interface DbConnectionPoolMetrics {
