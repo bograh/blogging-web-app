@@ -120,7 +120,7 @@ export default function ReportsPage() {
   };
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
           <Download className="h-6 w-6" /> Report Exports
@@ -154,16 +154,18 @@ export default function ReportsPage() {
 
             <div>
               <Label className="mb-2 block">Filter (optional)</Label>
-              <div className="flex gap-2">
+              <div className="flex flex-col sm:flex-row gap-2">
                 <Input
                   placeholder="Key (e.g. author)"
                   value={filterKey}
                   onChange={(e) => setFilterKey(e.target.value)}
+                  className="flex-1"
                 />
                 <Input
                   placeholder="Value"
                   value={filterValue}
                   onChange={(e) => setFilterValue(e.target.value)}
+                  className="flex-1"
                 />
               </div>
             </div>
@@ -203,7 +205,7 @@ export default function ReportsPage() {
           ) : (
             <div className="divide-y divide-border">
               {reports.map((report) => (
-                <div key={report.reportId} className="flex items-center justify-between gap-4 py-4">
+                <div key={report.reportId} className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 py-4">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-2">
                       <p className="text-sm font-medium text-foreground">{report.reportType}</p>
@@ -211,8 +213,11 @@ export default function ReportsPage() {
                         {report.status}
                       </Badge>
                     </div>
-                    <p className="mt-0.5 truncate text-xs text-muted-foreground">
-                      {report.reportId} · {new Date(report.createdAt).toLocaleString()}
+                    <p className="mt-1 truncate text-xs text-muted-foreground">
+                      {report.reportId}
+                    </p>
+                    <p className="mt-0.5 text-xs text-muted-foreground">
+                      {new Date(report.createdAt).toLocaleString()}
                       {report.completedAt && ` · Done at ${new Date(report.completedAt).toLocaleString()}`}
                     </p>
                     {report.error && (
@@ -221,7 +226,7 @@ export default function ReportsPage() {
                   </div>
                   <div className="flex shrink-0 items-center gap-2">
                     {report.downloadUrl && report.status === "COMPLETED" && (
-                      <Button variant="outline" size="sm" onClick={() => handleDownload(report)}>
+                      <Button variant="outline" size="sm" onClick={() => handleDownload(report)} className="w-full sm:w-auto">
                         <Download className="mr-1.5 h-3.5 w-3.5" />
                         Download
                       </Button>

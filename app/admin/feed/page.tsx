@@ -76,8 +76,8 @@ export default function AdminFeedPage() {
   const stable = scores.filter((s) => s.trend === "STABLE").length;
 
   return (
-    <div className="space-y-6 p-8">
-      <div className="flex items-start justify-between">
+    <div className="space-y-6">
+      <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
         <div>
           <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
             <Zap className="h-6 w-6 text-yellow-500" /> Feed Management
@@ -86,11 +86,11 @@ export default function AdminFeedPage() {
             Monitor live trending scores and force-refresh the trending snapshot.
           </p>
         </div>
-        <Button onClick={handleRefresh} disabled={isRefreshing || isLoading}>
+        <Button onClick={handleRefresh} disabled={isRefreshing || isLoading} className="w-full sm:w-auto">
           {isRefreshing ? (
             <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Refreshing...</>
           ) : (
-            <><RefreshCw className="mr-2 h-4 w-4" />Force Refresh Trending</>
+            <><RefreshCw className="mr-2 h-4 w-4" />Force Refresh</>
           )}
         </Button>
       </div>

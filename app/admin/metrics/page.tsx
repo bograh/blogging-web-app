@@ -190,17 +190,18 @@ export default function AdminMetricsPage() {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-foreground">API Metrics</h1>
           <p className="mt-1 text-muted-foreground">Monitor API performance and usage statistics</p>
         </div>
-        <div className="flex gap-2">
+        <div className="flex flex-wrap gap-2">
           <Button
             variant="outline"
             size="sm"
             onClick={handleRefresh}
             disabled={isRefreshing}
+            className="flex-1 sm:flex-none"
           >
             <RefreshCw className={`h-4 w-4 mr-2 ${isRefreshing ? "animate-spin" : ""}`} />
             Refresh
@@ -210,6 +211,7 @@ export default function AdminMetricsPage() {
             size="sm"
             onClick={handleExport}
             disabled={isExporting}
+            className="flex-1 sm:flex-none"
           >
             <Download className="h-4 w-4 mr-2" />
             Export
@@ -219,6 +221,7 @@ export default function AdminMetricsPage() {
             size="sm"
             onClick={handleReset}
             disabled={isResetting}
+            className="flex-1 sm:flex-none"
           >
             <Trash2 className="h-4 w-4 mr-2" />
             Reset
@@ -228,7 +231,7 @@ export default function AdminMetricsPage() {
 
       {/* Summary Cards */}
       {summary && (
-        <div className="grid gap-6 md:grid-cols-4">
+        <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           <Card>
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="text-sm font-medium">Total Executions</CardTitle>
@@ -278,7 +281,7 @@ export default function AdminMetricsPage() {
       {/* Cache Metrics Summary */}
       {runtimeMetrics && (
         <div>
-          <div className="mb-4 flex items-center justify-between">
+          <div className="mb-4 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
             <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
               <Activity className="h-6 w-6" />
               Runtime API Metrics
@@ -289,23 +292,25 @@ export default function AdminMetricsPage() {
                 size="sm"
                 onClick={handleRuntimeExport}
                 disabled={isRuntimeExporting}
+                className="flex-1 sm:flex-none"
               >
                 <Download className="h-4 w-4 mr-2" />
-                Export Runtime CSV
+                Export CSV
               </Button>
               <Button
                 variant="destructive"
                 size="sm"
                 onClick={handleRuntimeReset}
                 disabled={isRuntimeResetting}
+                className="flex-1 sm:flex-none"
               >
                 <Trash2 className="h-4 w-4 mr-2" />
-                Reset Runtime
+                Reset
               </Button>
             </div>
           </div>
 
-          <div className="grid gap-6 md:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
@@ -364,14 +369,14 @@ export default function AdminMetricsPage() {
               <div className="space-y-4">
                 {(runtimeMetrics.endpoints || []).map((endpoint) => (
                   <div key={`${endpoint.endpoint}-${endpoint.method || 'ANY'}`} className="rounded-lg border border-border bg-card p-4">
-                    <div className="flex items-start justify-between gap-4">
+                    <div className="flex flex-col sm:flex-row sm:items-start justify-between gap-4">
                       <div>
                         <div className="font-medium text-foreground">{endpoint.endpoint}</div>
                         {endpoint.method && (
                           <div className="text-xs text-muted-foreground mt-1">Method: {endpoint.method}</div>
                         )}
                       </div>
-                      <Badge variant={endpoint.errorRatePercent > 1 ? "destructive" : "secondary"}>
+                      <Badge variant={endpoint.errorRatePercent > 1 ? "destructive" : "secondary"} className="w-fit">
                         {formatPercent(endpoint.errorRatePercent)} errors
                       </Badge>
                     </div>
@@ -415,7 +420,7 @@ export default function AdminMetricsPage() {
             <Database className="h-6 w-6" />
             Cache Performance
           </h2>
-          <div className="grid gap-6 md:grid-cols-4">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
             <Card>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
@@ -483,8 +488,8 @@ export default function AdminMetricsPage() {
                   className="rounded-lg border border-border bg-card p-4"
                 >
                   <div className="flex flex-col gap-3">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-2">
+                    <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <code className="text-sm font-mono font-medium">{cache.cacheName}</code>
                         <Badge variant={getRateValue(cache.hitRate) > 50 ? "default" : "secondary"}>
                           {cache.hitRate} hit rate
@@ -548,16 +553,16 @@ export default function AdminMetricsPage() {
               {topMethods.map((method, index) => (
                 <div
                   key={`${method.methodName}-${index}`}
-                  className="flex items-center justify-between rounded-lg border border-border bg-card p-4"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 rounded-lg border border-border bg-card p-4"
                 >
                   <div className="flex items-center gap-4">
-                    <div className="flex h-8 w-8 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
+                    <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-bold text-primary">
                       #{index + 1}
                     </div>
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <code className="text-sm font-mono font-medium">{method.methodName}</code>
-                        <Badge variant={method.failedCalls > 0 ? "destructive" : "default"}>
+                    <div className="min-w-0">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <code className="text-sm font-mono font-medium truncate max-w-full">{method.methodName}</code>
+                        <Badge variant={method.failedCalls > 0 ? "destructive" : "default"} className="shrink-0">
                           {getSuccessRate(method)}% success
                         </Badge>
                       </div>

@@ -100,7 +100,7 @@ export default function NotificationsPage() {
   };
 
   return (
-    <div className="space-y-6 p-8">
+    <div className="space-y-6">
       <div>
         <h1 className="flex items-center gap-2 text-2xl font-bold text-foreground">
           <Bell className="h-6 w-6" /> Notifications
@@ -112,13 +112,13 @@ export default function NotificationsPage() {
 
       {/* Stats */}
       {isLoading ? (
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {Array.from({ length: 6 }).map((_, i) => (
             <Skeleton key={i} className="h-24 rounded-xl" />
           ))}
         </div>
       ) : stats ? (
-        <div className="grid gap-4 sm:grid-cols-3 lg:grid-cols-6">
+        <div className="grid gap-4 grid-cols-2 md:grid-cols-3 xl:grid-cols-6">
           {[
             { label: "Pending", value: stats.totalPending },
             { label: "Processing", value: stats.totalProcessing },

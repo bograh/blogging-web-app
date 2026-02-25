@@ -264,16 +264,16 @@ export default function AdminDashboard() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-5">
-          <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
-          <TabsTrigger value="performance">Performance</TabsTrigger>
-          <TabsTrigger value="cache">Cache</TabsTrigger>
-          <TabsTrigger value="simulation">Simulation</TabsTrigger>
-          <TabsTrigger value="comparison">Comparison</TabsTrigger>
+        <TabsList className="flex w-full overflow-x-auto h-auto p-1 bg-muted/50 scrollbar-hide">
+          <TabsTrigger value="dashboard" className="flex-1 min-w-[100px]">Dashboard</TabsTrigger>
+          <TabsTrigger value="performance" className="flex-1 min-w-[100px]">Performance</TabsTrigger>
+          <TabsTrigger value="cache" className="flex-1 min-w-[100px]">Cache</TabsTrigger>
+          <TabsTrigger value="simulation" className="flex-1 min-w-[100px]">Simulation</TabsTrigger>
+          <TabsTrigger value="comparison" className="flex-1 min-w-[100px]">Comparison</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-3">
+          <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3">
             {statCards.map((stat) => (
               <Card key={stat.title}>
                 <CardHeader className="flex flex-row items-center justify-between pb-2">
@@ -302,7 +302,7 @@ export default function AdminDashboard() {
             ))}
           </div>
 
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-4 grid-cols-1 lg:grid-cols-2">
             <Card>
               <CardHeader>
                 <CardTitle>Quick Actions</CardTitle>
@@ -395,7 +395,7 @@ export default function AdminDashboard() {
           </div>
 
           {performanceSummary && (
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -473,7 +473,7 @@ export default function AdminDashboard() {
                         </Badge>
                       )}
                     </div>
-                    <div className="grid grid-cols-3 gap-4 text-sm">
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 text-sm">
                       <div>
                         <div className="text-muted-foreground">Avg Time</div>
                         <div className="font-medium text-foreground">{metric.averageExecutionTime.toFixed(2)} ms</div>
@@ -511,7 +511,7 @@ export default function AdminDashboard() {
           </div>
 
           {cacheSummary && (
-            <div className="grid gap-4 md:grid-cols-4">
+            <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 xl:grid-cols-4">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -564,7 +564,7 @@ export default function AdminDashboard() {
           )}
 
           {cacheSummary?.bestPerformingCache && cacheSummary?.worstPerformingCache && (
-            <div className="grid gap-4 md:grid-cols-2">
+            <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
               <Card>
                 <CardHeader className="pb-2">
                   <CardTitle className="text-sm font-medium text-green-500">
@@ -618,7 +618,7 @@ export default function AdminDashboard() {
                         {formatHitRate(cache.hitRate)} hit rate
                       </Badge>
                     </div>
-                    <div className="grid grid-cols-4 gap-4 text-sm">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
                       <div>
                         <div className="text-muted-foreground">Puts</div>
                         <div className="font-medium text-foreground">{cache.puts}</div>
@@ -670,7 +670,7 @@ export default function AdminDashboard() {
               <CardDescription>Understanding the automated cache performance test</CardDescription>
             </CardHeader>
             <CardContent>
-              <div className="grid gap-4 md:grid-cols-2">
+              <div className="grid gap-4 grid-cols-1 md:grid-cols-2">
                 <div className="rounded-lg border border-border p-4">
                   <div className="mb-2 flex items-center gap-2">
                     <Badge variant="outline" className="bg-red-500/10 text-red-500">PRE-CACHE</Badge>
@@ -718,7 +718,7 @@ export default function AdminDashboard() {
                   </CardDescription>
                 </CardHeader>
                 <CardContent>
-                  <div className="grid gap-4 md:grid-cols-5">
+                  <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
                     <Card>
                       <CardHeader className="pb-2">
                         <CardTitle className="text-sm font-medium text-muted-foreground">
@@ -829,77 +829,77 @@ export default function AdminDashboard() {
                         {result.cached ? (() => {
                           const cached = result as CachedSimulationMethodResult;
                           return (
-                          <div className="grid gap-4 md:grid-cols-3">
-                            <div className="rounded border border-red-500/20 bg-red-500/5 p-3">
-                              <div className="mb-1 flex items-center gap-2 text-red-500">
-                                <Timer className="h-4 w-4" />
-                                <span className="text-xs font-medium">PRE-CACHE (No Cache)</span>
+                            <div className="grid gap-4 md:grid-cols-3">
+                              <div className="rounded border border-red-500/20 bg-red-500/5 p-3">
+                                <div className="mb-1 flex items-center gap-2 text-red-500">
+                                  <Timer className="h-4 w-4" />
+                                  <span className="text-xs font-medium">PRE-CACHE (No Cache)</span>
+                                </div>
+                                <div className="text-lg font-bold text-foreground">
+                                  {cached.preCache.avgMs.toFixed(1)} ms
+                                  <span className="text-xs font-normal text-muted-foreground"> avg</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Min: {cached.preCache.minMs} ms • Max: {cached.preCache.maxMs} ms
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  Times: [{cached.preCache.timesMs.join(', ')}]
+                                </div>
                               </div>
-                              <div className="text-lg font-bold text-foreground">
-                                {cached.preCache.avgMs.toFixed(1)} ms
-                                <span className="text-xs font-normal text-muted-foreground"> avg</span>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Min: {cached.preCache.minMs} ms • Max: {cached.preCache.maxMs} ms
-                              </div>
-                              <div className="mt-1 text-xs text-muted-foreground">
-                                Times: [{cached.preCache.timesMs.join(', ')}]
-                              </div>
-                            </div>
 
-                            <div className="rounded border border-green-500/20 bg-green-500/5 p-3">
-                              <div className="mb-1 flex items-center gap-2 text-green-500">
-                                <Zap className="h-4 w-4" />
-                                <span className="text-xs font-medium">POST-CACHE (With Cache)</span>
+                              <div className="rounded border border-green-500/20 bg-green-500/5 p-3">
+                                <div className="mb-1 flex items-center gap-2 text-green-500">
+                                  <Zap className="h-4 w-4" />
+                                  <span className="text-xs font-medium">POST-CACHE (With Cache)</span>
+                                </div>
+                                <div className="text-lg font-bold text-foreground">
+                                  {cached.postCache.cacheHitAvgMs.toFixed(1)} ms
+                                  <span className="text-xs font-normal text-muted-foreground"> cache hit avg</span>
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Cache miss: {cached.postCache.cacheMissTimeMs} ms
+                                </div>
+                                <div className="mt-1 text-xs text-muted-foreground">
+                                  Hit times: [{cached.postCache.cacheHitTimesMs.join(', ')}]
+                                </div>
                               </div>
-                              <div className="text-lg font-bold text-foreground">
-                                {cached.postCache.cacheHitAvgMs.toFixed(1)} ms
-                                <span className="text-xs font-normal text-muted-foreground"> cache hit avg</span>
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Cache miss: {cached.postCache.cacheMissTimeMs} ms
-                              </div>
-                              <div className="mt-1 text-xs text-muted-foreground">
-                                Hit times: [{cached.postCache.cacheHitTimesMs.join(', ')}]
-                              </div>
-                            </div>
 
-                            <div className="rounded border border-yellow-500/20 bg-yellow-500/5 p-3">
-                              <div className="mb-1 flex items-center gap-2 text-yellow-500">
-                                <TrendingUp className="h-4 w-4" />
-                                <span className="text-xs font-medium">IMPROVEMENT</span>
-                              </div>
-                              <div className="text-lg font-bold text-green-500">
-                                {cached.improvement.avgTimeReductionPercent}
-                              </div>
-                              <div className="text-xs text-muted-foreground">
-                                Avg reduction: {cached.improvement.avgTimeReductionMs.toFixed(1)} ms
-                              </div>
-                              <div className="mt-1 text-xs font-medium text-yellow-500">
-                                {cached.improvement.speedupFactor}
+                              <div className="rounded border border-yellow-500/20 bg-yellow-500/5 p-3">
+                                <div className="mb-1 flex items-center gap-2 text-yellow-500">
+                                  <TrendingUp className="h-4 w-4" />
+                                  <span className="text-xs font-medium">IMPROVEMENT</span>
+                                </div>
+                                <div className="text-lg font-bold text-green-500">
+                                  {cached.improvement.avgTimeReductionPercent}
+                                </div>
+                                <div className="text-xs text-muted-foreground">
+                                  Avg reduction: {cached.improvement.avgTimeReductionMs.toFixed(1)} ms
+                                </div>
+                                <div className="mt-1 text-xs font-medium text-yellow-500">
+                                  {cached.improvement.speedupFactor}
+                                </div>
                               </div>
                             </div>
-                          </div>
                           );
                         })() : (() => {
                           const uncached = result as UncachedSimulationMethodResult;
                           return (
-                          <div className="rounded border border-muted bg-muted/20 p-3">
-                            <div className="mb-1 flex items-center gap-2 text-muted-foreground">
-                              <Timer className="h-4 w-4" />
-                              <span className="text-xs font-medium">DATABASE PERFORMANCE (Baseline)</span>
+                            <div className="rounded border border-muted bg-muted/20 p-3">
+                              <div className="mb-1 flex items-center gap-2 text-muted-foreground">
+                                <Timer className="h-4 w-4" />
+                                <span className="text-xs font-medium">DATABASE PERFORMANCE (Baseline)</span>
+                              </div>
+                              <div className="text-lg font-bold text-foreground">
+                                {uncached.preCacheAvgMs.toFixed(1)} ms
+                                <span className="text-xs font-normal text-muted-foreground"> avg</span>
+                              </div>
+                              <div className="text-xs text-muted-foreground">
+                                Min: {uncached.preCacheMinMs} ms • Max: {uncached.preCacheMaxMs} ms
+                              </div>
+                              <div className="mt-1 text-xs text-muted-foreground">
+                                Times: [{uncached.preCacheTimesMs.join(', ')}]
+                              </div>
                             </div>
-                            <div className="text-lg font-bold text-foreground">
-                              {uncached.preCacheAvgMs.toFixed(1)} ms
-                              <span className="text-xs font-normal text-muted-foreground"> avg</span>
-                            </div>
-                            <div className="text-xs text-muted-foreground">
-                              Min: {uncached.preCacheMinMs} ms • Max: {uncached.preCacheMaxMs} ms
-                            </div>
-                            <div className="mt-1 text-xs text-muted-foreground">
-                              Times: [{uncached.preCacheTimesMs.join(', ')}]
-                            </div>
-                          </div>
                           );
                         })()}
                       </div>

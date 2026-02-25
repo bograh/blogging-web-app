@@ -119,7 +119,7 @@ export default function AdminCommentsPage() {
       </div>
 
       {/* Search */}
-      <form onSubmit={handleSearch} className="flex gap-2">
+      <form onSubmit={handleSearch} className="flex flex-col sm:flex-row gap-2">
         <div className="relative flex-1 max-w-md">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
@@ -130,103 +130,105 @@ export default function AdminCommentsPage() {
             className="pl-10"
           />
         </div>
-        <Button type="submit">Search</Button>
+        <Button type="submit" className="w-full sm:w-auto">Search</Button>
       </form>
 
       {/* Comments Table */}
-      <div className="rounded-md border border-border">
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead className="w-[60px]">ID</TableHead>
-              <TableHead className="w-[300px]">Content</TableHead>
-              <TableHead>Author</TableHead>
-              <TableHead>Post</TableHead>
-              <TableHead>Created</TableHead>
-              <TableHead className="w-[100px]">Actions</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            {isLoading ? (
-              Array.from({ length: 5 }).map((_, i) => (
-                <TableRow key={i}>
-                  <TableCell><Skeleton className="h-4 w-8" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-64" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-24" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-32" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-28" /></TableCell>
-                  <TableCell><Skeleton className="h-4 w-16" /></TableCell>
-                </TableRow>
-              ))
-            ) : comments.length === 0 ? (
+      <div className="rounded-md border border-border overflow-x-auto">
+        <div className="min-w-[800px]">
+          <Table>
+            <TableHeader>
               <TableRow>
-                <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
-                  No comments found
-                </TableCell>
+                <TableHead className="w-[60px]">ID</TableHead>
+                <TableHead className="w-[300px]">Content</TableHead>
+                <TableHead>Author</TableHead>
+                <TableHead>Post</TableHead>
+                <TableHead>Created</TableHead>
+                <TableHead className="w-[100px]">Actions</TableHead>
               </TableRow>
-            ) : (
-              comments.map((comment) => (
-                <TableRow key={comment.id}>
-                  <TableCell className="font-mono text-xs text-muted-foreground">
-                    {comment.id.slice(0, 8)}...
-                  </TableCell>
-                  <TableCell>
-                    <div className="text-foreground line-clamp-2 text-sm">
-                      {truncateContent(comment.content)}
-                    </div>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground">
-                    {comment.author || "Unknown"}
-                  </TableCell>
-                  <TableCell>
-                    <Link
-                      href={`/posts/${comment.postId}`}
-                      target="_blank"
-                      className="text-primary hover:underline text-sm flex items-center gap-1"
-                    >
-                      Post #{comment.postId}
-                      <ExternalLink className="h-3 w-3" />
-                    </Link>
-                  </TableCell>
-                  <TableCell className="text-muted-foreground text-sm">
-                    {formatDate(comment.createdAt)}
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        asChild
-                        className="h-8 w-8"
-                      >
-                        <Link href={`/posts/${comment.postId}`} target="_blank">
-                          <ExternalLink className="h-4 w-4" />
-                        </Link>
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-destructive hover:text-destructive"
-                        onClick={() => setDeleteCommentId(comment.id)}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                    </div>
+            </TableHeader>
+            <TableBody>
+              {isLoading ? (
+                Array.from({ length: 5 }).map((_, i) => (
+                  <TableRow key={i}>
+                    <TableCell><Skeleton className="h-4 w-8" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-64" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-24" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-32" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-28" /></TableCell>
+                    <TableCell><Skeleton className="h-4 w-16" /></TableCell>
+                  </TableRow>
+                ))
+              ) : comments.length === 0 ? (
+                <TableRow>
+                  <TableCell colSpan={6} className="text-center text-muted-foreground py-8">
+                    No comments found
                   </TableCell>
                 </TableRow>
-              ))
-            )}
-          </TableBody>
-        </Table>
+              ) : (
+                comments.map((comment) => (
+                  <TableRow key={comment.id}>
+                    <TableCell className="font-mono text-xs text-muted-foreground">
+                      {comment.id.slice(0, 8)}...
+                    </TableCell>
+                    <TableCell>
+                      <div className="text-foreground line-clamp-2 text-sm">
+                        {truncateContent(comment.content)}
+                      </div>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground">
+                      {comment.author || "Unknown"}
+                    </TableCell>
+                    <TableCell>
+                      <Link
+                        href={`/posts/${comment.postId}`}
+                        target="_blank"
+                        className="text-primary hover:underline text-sm flex items-center gap-1"
+                      >
+                        Post #{comment.postId}
+                        <ExternalLink className="h-3 w-3" />
+                      </Link>
+                    </TableCell>
+                    <TableCell className="text-muted-foreground text-sm">
+                      {formatDate(comment.createdAt)}
+                    </TableCell>
+                    <TableCell>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          asChild
+                          className="h-8 w-8"
+                        >
+                          <Link href={`/posts/${comment.postId}`} target="_blank">
+                            <ExternalLink className="h-4 w-4" />
+                          </Link>
+                        </Button>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-8 w-8 text-destructive hover:text-destructive"
+                          onClick={() => setDeleteCommentId(comment.id)}
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </div>
       </div>
 
       {/* Pagination */}
       {pagination && (pagination.totalPages ?? Math.ceil(pagination.totalElements / pageSize)) > 1 && (
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-muted-foreground">
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <div className="text-sm text-muted-foreground order-2 sm:order-1">
             Showing {comments.length} of {pagination.totalElements} comments
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-2 order-1 sm:order-2">
             <Button
               variant="outline"
               size="sm"
@@ -236,8 +238,8 @@ export default function AdminCommentsPage() {
               <ChevronLeft className="h-4 w-4" />
               Previous
             </Button>
-            <span className="text-sm text-muted-foreground">
-              Page {currentPage + 1} of {pagination.totalPages ?? Math.ceil(pagination.totalElements / pageSize)}
+            <span className="text-sm text-muted-foreground whitespace-nowrap">
+              Page {currentPage + 1} of {pagination.totalPages}
             </span>
             <Button
               variant="outline"

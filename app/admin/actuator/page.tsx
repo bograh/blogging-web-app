@@ -57,16 +57,16 @@ export default function ActuatorMonitoringPage() {
                 </p>
             </div>
 
-            <div className="grid gap-5 md:grid-cols-5">
+            <div className="grid gap-5 grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-3">
                 <HealthStatusPanel refreshSignal={refreshSignal} />
                 <ServerUptimePanel refreshSignal={refreshSignal} />
                 <JvmMetricsPanel refreshSignal={refreshSignal} />
                 <HttpRequestStatsPanel refreshSignal={refreshSignal} />
-                {/* <LogErrorRatePanel refreshSignal={refreshSignal} /> */}
+                <LogErrorRatePanel refreshSignal={refreshSignal} />
                 <DbConnectionPoolPanel refreshSignal={refreshSignal} />
             </div>
 
-            <div className="grid gap-5 md:grid-cols-2">
+            <div className="grid gap-5 grid-cols-1 lg:grid-cols-2">
                 <HttpTracesPanel refreshSignal={refreshSignal} />
                 <HttpExchangesPanel refreshSignal={refreshSignal} />
             </div>
