@@ -18,6 +18,7 @@ import {
   Bell,
   Download,
   Zap,
+  Activity,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -66,6 +67,11 @@ const sidebarItems = [
     title: "Reports",
     href: "/admin/reports",
     icon: Download,
+  },
+  {
+    title: "Actuator",
+    href: "/admin/actuator",
+    icon: Activity,
   },
 ];
 

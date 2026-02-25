@@ -46,7 +46,7 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
       const isOwnProfile = currentUser && username === currentUser.username;
 
       if (isOwnProfile) {
-        const response = await api.auth.getProfile();
+        const response = await api.users.getProfile();
         if (response.data) {
           setProfile(response.data);
           // Convert recentPosts from profile response to Post format

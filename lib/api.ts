@@ -14,7 +14,7 @@ import {
 } from '@/types';
 
 // --- API CONFIGURATION ---
-export const BASE_URL = '';
+export const BASE_URL = 'http://localhost:8080';
 
 // Create axios instance with default config
 const axiosInstance = axios.create({
@@ -470,6 +470,15 @@ export const api = {
     getProfile: async (): Promise<ApiResponse<UserProfile>> => {
       return request<UserProfile>('/api/users/profile');
     }
+  },
+
+  users: {
+    getProfile: async (): Promise<ApiResponse<UserProfile>> => {
+      const token = tokenManager.getToken();
+      return request<UserProfile>('/api/users/profile', {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+      });
+    },
   },
 
   posts: {
