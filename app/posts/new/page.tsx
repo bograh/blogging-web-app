@@ -13,7 +13,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, X, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, X, Plus, ImageIcon } from "lucide-react";
 import { toast } from "sonner";
 
 function NewPostPage() {
@@ -25,6 +25,8 @@ function NewPostPage() {
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
 
   const handleAddTag = () => {
     const tag = tagInput.trim();
@@ -32,6 +34,23 @@ function NewPostPage() {
       setTags((prev) => [...prev, tag]);
       setTagInput("");
     }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    if (file) {
+      const url = URL.createObjectURL(file);
+      setImagePreview(url);
+    } else {
+      setImagePreview(null);
+    }
+  };
+
+  const handleRemoveImage = () => {
+    setImageFile(null);
+    if (imagePreview) URL.revokeObjectURL(imagePreview);
+    setImagePreview(null);
   };
 
   const handleRemoveTag = (tagToRemove: string) => {
@@ -56,11 +75,10 @@ function NewPostPage() {
 
     setIsSubmitting(true);
     try {
-      const response = await api.posts.create({
-        title: title.trim(),
-        body: content.trim(),
-        tags,
-      });
+      const response = await api.posts.create(
+        { title: title.trim(), body: content.trim(), tags },
+        imageFile ?? undefined
+      );
       if (response.data) {
         toast.success("Post created successfully!");
         router.push(`/posts/${response.data.id}`);
@@ -179,6 +197,37 @@ function NewPostPage() {
                   </Badge>
                 ))}
               </div>
+            )}
+          </div>
+
+          {/* Image */}
+          <div className="space-y-2">
+            <Label>Cover Image (optional)</Label>
+            {imagePreview ? (
+              <div className="relative w-full overflow-hidden rounded-lg border border-border">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={imagePreview} alt="Preview" className="max-h-64 w-full object-cover" />
+                <button
+                  type="button"
+                  onClick={handleRemoveImage}
+                  className="absolute right-2 top-2 rounded-full bg-background/80 p-1 text-foreground shadow hover:bg-background"
+                >
+                  <X className="h-4 w-4" />
+                  <span className="sr-only">Remove image</span>
+                </button>
+              </div>
+            ) : (
+              <label className="flex cursor-pointer flex-col items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-10 transition hover:bg-muted/50">
+                <ImageIcon className="h-8 w-8 text-muted-foreground" />
+                <span className="text-sm text-muted-foreground">Click to upload an image</span>
+                <span className="text-xs text-muted-foreground">(JPEG, PNG, GIF, WebP)</span>
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/gif,image/webp"
+                  className="sr-only"
+                  onChange={handleImageChange}
+                />
+              </label>
             )}
           </div>
 

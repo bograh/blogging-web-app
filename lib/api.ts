@@ -5,12 +5,16 @@ import {
   MetricsResponse, MetricsSummary, UserProfile, Tag, CacheMetricsResponse,
   CacheMetric, CacheSummary, AdminStats, AdminUser, AdminUserSummary, AdminComment, AuthResponse,
   MethodMetric, PerformanceSnapshot, CacheSnapshot, PerformanceComparison,
-  SecurityStats, SecurityEvent, SecurityEventType, BlockedStatus,
-  SimulationResult, SimulationMethodResult, SimulationMethodType
+  SimulationResult, SimulationMethodResult, SimulationMethodType, RuntimeMetricsResponse,
+  FeedResponse, TrendingLiveResponse,
+  BulkModerationRequest, ModerationTask,
+  NotificationRequest, Notification, NotificationStats,
+  ReportExportRequest, ReportExport,
+  ImageUpload
 } from '@/types';
 
 // --- API CONFIGURATION ---
-const BASE_URL = 'http://localhost:8080';
+export const BASE_URL = '';
 
 // Create axios instance with default config
 const axiosInstance = axios.create({
@@ -131,6 +135,11 @@ axiosInstance.interceptors.request.use(
 
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
+    }
+
+    // Let the browser set Content-Type (with boundary) for multipart requests
+    if (config.data instanceof FormData) {
+      delete config.headers['Content-Type'];
     }
 
     return config;
@@ -475,80 +484,49 @@ export const api = {
         search?: string;
       }
     ): Promise<ApiResponse<PaginatedResponse<Post>>> => {
-      const sortBy = options?.sort === 'lastUpdated' ? 'updatedAt' : (options?.sort || 'updatedAt');
-      const sortDirection = options?.order || 'DESC';
+      const params = new URLSearchParams({
+        page: page.toString(),
+        size: size.toString(),
+        sort: options?.sort === 'updatedAt' ? 'lastUpdated' : (options?.sort || 'lastUpdated'),
+        order: options?.order || 'DESC',
+      });
 
-      const query = `
-        query GetAllPosts($page: Int!, $size: Int!, $sortBy: String!, $sortDirection: String!, $author: String, $tags: [String!], $search: String) {
-          getAllPosts(
-            page: $page,
-            size: $size,
-            sortBy: $sortBy,
-            sortDirection: $sortDirection,
-            author: $author,
-            tags: $tags,
-            search: $search
-          ) {
-            content {
-              id
-              title
-              updatedAt
-              tags {
-                name
-              }
-              totalComments
-              author {
-                username
-              }
-            }
-            pageNumber
-            pageSize
-            totalElements
-            totalPages
-            last
-          }
-        }
-      `;
+      if (options?.author) params.append('author', options.author);
+      if (options?.tags?.length) params.append('tags', options.tags.join(','));
+      if (options?.search) params.append('search', options.search);
 
-      const variables: Record<string, any> = {
-        page,
-        size,
-        sortBy,
-        sortDirection,
-      };
+      return request<PaginatedResponse<Post>>(`/api/posts?${params.toString()}`);
+    },
 
-      // Add optional parameters if provided
-      if (options?.author) {
-        variables.author = options.author;
+    getPopular: async (limit?: number): Promise<ApiResponse<Post[]>> => {
+      const params = new URLSearchParams();
+      if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+        params.append('limit', Math.floor(limit).toString());
       }
-      if (options?.tags && options.tags.length > 0) {
-        variables.tags = options.tags;
-      }
-      if (options?.search) {
-        variables.search = options.search;
-      }
+      const query = params.toString();
+      return request<Post[]>(`/api/posts/popular${query ? `?${query}` : ''}`);
+    },
 
-      const response = await graphqlRequest<{ getAllPosts: PaginatedResponse<Post> }>(query, variables);
-
-      if (response.data) {
-        return {
-          status: 'success',
-          message: 'Posts loaded successfully',
-          data: response.data.getAllPosts
-        };
+    getTrending: async (limit?: number): Promise<ApiResponse<Post[]>> => {
+      const params = new URLSearchParams();
+      if (typeof limit === 'number' && Number.isFinite(limit) && limit > 0) {
+        params.append('limit', Math.floor(limit).toString());
       }
-
-      return response as any;
+      const query = params.toString();
+      return request<Post[]>(`/api/posts/trending${query ? `?${query}` : ''}`);
     },
 
     getById: async (id: number): Promise<ApiResponse<Post>> => {
       return request<Post>(`/api/posts/${id}`);
     },
 
-    create: async (req: CreatePostRequest): Promise<ApiResponse<Post>> => {
+    create: async (req: CreatePostRequest, image?: File): Promise<ApiResponse<Post>> => {
+      const formData = new FormData();
+      formData.append('post', new Blob([JSON.stringify(req)], { type: 'application/json' }));
+      if (image) formData.append('image', image);
       return request<Post>('/api/posts', {
         method: 'POST',
-        data: req,
+        data: formData,
       });
     },
 
@@ -620,7 +598,7 @@ export const api = {
       if (options?.sort) params.append('sort', options.sort);
       if (options?.order) params.append('order', options.order);
       if (options?.author) params.append('author', options.author);
-      if (options?.tags) options.tags.forEach(tag => params.append('tags', tag));
+      if (options?.tags?.length) params.append('tags', options.tags.join(','));
       if (options?.search) params.append('search', options.search);
 
       return request<PaginatedResponse<Post>>(`/api/admin/posts?${params.toString()}`);
@@ -706,8 +684,28 @@ export const api = {
       return request<MethodMetric>(`/api/metrics/performance/method/${encodeURIComponent(methodName)}`);
     },
 
+    getLayerMethodMetric: async (layer: string, methodName: string): Promise<ApiResponse<MethodMetric>> => {
+      return request<MethodMetric>(`/api/metrics/performance/${encodeURIComponent(layer)}/${encodeURIComponent(methodName)}`);
+    },
+
     getPerformanceSummary: async (): Promise<ApiResponse<MetricsSummary>> => {
       return request<MetricsSummary>('/api/metrics/performance/summary');
+    },
+
+    getRuntimeMetrics: async (limit = 10): Promise<ApiResponse<RuntimeMetricsResponse>> => {
+      return request<RuntimeMetricsResponse>(`/api/metrics/performance/runtime?limit=${limit}`);
+    },
+
+    exportRuntimeMetrics: async (limit = 25): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>(`/api/metrics/performance/runtime/export?limit=${limit}`, {
+        method: 'POST',
+      });
+    },
+
+    resetRuntimeMetrics: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/metrics/performance/runtime/reset', {
+        method: 'DELETE',
+      });
     },
 
     resetPerformanceMetrics: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
@@ -765,6 +763,14 @@ export const api = {
       return request<PerformanceComparison>(url);
     },
 
+    getLatestFileComparison: async (): Promise<ApiResponse<PerformanceComparison>> => {
+      return request<PerformanceComparison>('/api/metrics/performance/comparison');
+    },
+
+    getFileComparison: async (fileName: string): Promise<ApiResponse<PerformanceComparison>> => {
+      return request<PerformanceComparison>(`/api/metrics/performance/comparison/${encodeURIComponent(fileName)}`);
+    },
+
     // Repository-Driven Comparison (Recommended)
     saveBaseline: async (): Promise<ApiResponse<PerformanceSnapshot>> => {
       return request<PerformanceSnapshot>('/api/metrics/performance/baseline', {
@@ -799,6 +805,10 @@ export const api = {
     },
 
     compareSnapshots: async (preCacheId: string, postCacheId: string): Promise<ApiResponse<PerformanceComparison>> => {
+      return request<PerformanceComparison>(`/api/metrics/performance/comparison/database/${preCacheId}/${postCacheId}`);
+    },
+
+    getDatabaseComparisonByIds: async (preCacheId: string, postCacheId: string): Promise<ApiResponse<PerformanceComparison>> => {
       return request<PerformanceComparison>(`/api/metrics/performance/comparison/database/${preCacheId}/${postCacheId}`);
     },
 
@@ -870,26 +880,115 @@ export const api = {
     }
   },
 
-  // Security Audit endpoints (require ADMIN role)
-  security: {
-    getStats: async (): Promise<ApiResponse<SecurityStats>> => {
-      return request<SecurityStats>('/api/security/audit/stats');
+  // Feed endpoints
+  feed: {
+    get: async (limit?: number): Promise<ApiResponse<FeedResponse>> => {
+      const params = new URLSearchParams();
+      if (typeof limit === 'number' && limit > 0) params.append('limit', String(Math.floor(limit)));
+      const q = params.toString();
+      return request<FeedResponse>(`/api/feed${q ? `?${q}` : ''}`);
     },
 
-    getEvents: async (page = 0, size = 20): Promise<ApiResponse<PaginatedResponse<SecurityEvent>>> => {
-      return request<PaginatedResponse<SecurityEvent>>(`/api/security/audit/events?page=${page}&size=${size}`);
+    getTrendingLive: async (limit?: number): Promise<ApiResponse<TrendingLiveResponse>> => {
+      const params = new URLSearchParams();
+      if (typeof limit === 'number' && limit > 0) params.append('limit', String(Math.floor(limit)));
+      const q = params.toString();
+      return request<TrendingLiveResponse>(`/api/feed/trending/live${q ? `?${q}` : ''}`);
     },
 
-    getEventsByType: async (eventType: SecurityEventType, page = 0, size = 20): Promise<ApiResponse<PaginatedResponse<SecurityEvent>>> => {
-      return request<PaginatedResponse<SecurityEvent>>(`/api/security/audit/events/${eventType}?page=${page}&size=${size}`);
+    refreshTrending: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
+      return request<{ status: string; message: string }>('/api/feed/trending/refresh', {
+        method: 'POST',
+      });
+    }
+  },
+
+  // Moderation endpoints (require ADMIN role)
+  moderation: {
+    bulk: async (req: BulkModerationRequest): Promise<ApiResponse<ModerationTask>> => {
+      return request<ModerationTask>('/api/moderation/bulk', {
+        method: 'POST',
+        data: req,
+      });
     },
 
-    checkBlockedIp: async (ipAddress: string): Promise<ApiResponse<BlockedStatus>> => {
-      return request<BlockedStatus>(`/api/security/audit/blocked/${ipAddress}`);
+    getTask: async (taskId: string): Promise<ApiResponse<ModerationTask>> => {
+      return request<ModerationTask>(`/api/moderation/tasks/${taskId}`);
     },
 
-    clearTracking: async (): Promise<ApiResponse<{ status: string; message: string }>> => {
-      return request<{ status: string; message: string }>('/api/security/audit/tracking/clear', {
+    listTasks: async (limit = 20): Promise<ApiResponse<ModerationTask[]>> => {
+      return request<ModerationTask[]>(`/api/moderation/tasks?limit=${limit}`);
+    }
+  },
+
+  // Notification outbox endpoints (require ADMIN role)
+  notifications: {
+    create: async (req: NotificationRequest): Promise<ApiResponse<Notification>> => {
+      return request<Notification>('/api/notifications', {
+        method: 'POST',
+        data: req,
+      });
+    },
+
+    getById: async (notificationId: string): Promise<ApiResponse<Notification>> => {
+      return request<Notification>(`/api/notifications/${notificationId}`);
+    },
+
+    getStats: async (): Promise<ApiResponse<NotificationStats>> => {
+      return request<NotificationStats>('/api/notifications/stats');
+    }
+  },
+
+  // Report export endpoints (require ADMIN role)
+  reports: {
+    export: async (req: ReportExportRequest): Promise<ApiResponse<ReportExport>> => {
+      return request<ReportExport>('/api/reports/export', {
+        method: 'POST',
+        data: req,
+      });
+    },
+
+    getById: async (reportId: string): Promise<ApiResponse<ReportExport>> => {
+      return request<ReportExport>(`/api/reports/${reportId}`);
+    },
+
+    list: async (limit = 20): Promise<ApiResponse<ReportExport[]>> => {
+      return request<ReportExport[]>(`/api/reports?limit=${limit}`);
+    }
+  },
+
+  // Image management endpoints
+  images: {
+    upload: async (postId: number, image: File): Promise<ApiResponse<ImageUpload>> => {
+      const formData = new FormData();
+      formData.append('image', image);
+      return request<ImageUpload>(`/api/images/upload/${postId}`, {
+        method: 'POST',
+        data: formData,
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+    },
+
+    getStatus: async (imageId: string): Promise<ApiResponse<ImageUpload>> => {
+      return request<ImageUpload>(`/api/images/status/${imageId}`);
+    },
+
+    getByPost: async (postId: number): Promise<ApiResponse<ImageUpload[]>> => {
+      return request<ImageUpload[]>(`/api/images/post/${postId}`);
+    },
+
+    getCompletedByPost: async (postId: number): Promise<ApiResponse<ImageUpload[]>> => {
+      return request<ImageUpload[]>(`/api/images/post/${postId}/completed`);
+    },
+
+    retry: async (imageId: string): Promise<ApiResponse<ImageUpload>> => {
+      return request<ImageUpload>(`/api/images/retry/${imageId}`, {
+        method: 'POST',
+      });
+    },
+
+    delete: async (imageId: string): Promise<ApiResponse<void>> => {
+      return request<void>(`/api/images/${imageId}`, {
         method: 'DELETE',
       });
     }

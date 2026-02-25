@@ -162,12 +162,7 @@ export default function AdminPostsPage() {
               </TableRow>
             ) : (
               posts.map((post) => {
-                const authorName = typeof post.author === 'object'
-                  ? post.author?.username
-                  : (post.authorName || post.author || 'Unknown');
-                const tags = Array.isArray(post.tags)
-                  ? post.tags.map(t => typeof t === 'string' ? t : t.name).slice(0, 3)
-                  : [];
+                const tags = post.tags.slice(0, 3);
 
                 return (
                   <TableRow key={post.id}>
@@ -180,7 +175,7 @@ export default function AdminPostsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {authorName}
+                      {post.author}
                     </TableCell>
                     <TableCell>
                       <div className="flex flex-wrap gap-1">
@@ -192,10 +187,10 @@ export default function AdminPostsPage() {
                       </div>
                     </TableCell>
                     <TableCell className="text-muted-foreground">
-                      {post.commentsCount ?? post.totalComments ?? 0}
+                      {post.totalComments}
                     </TableCell>
                     <TableCell className="text-muted-foreground text-sm">
-                      {formatDate(post.lastUpdated || post.updatedAt)}
+                      {formatDate(post.lastUpdated)}
                     </TableCell>
                     <TableCell>
                       <div className="flex items-center gap-1">

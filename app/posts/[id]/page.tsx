@@ -2,7 +2,7 @@
 
 import React from "react"
 
-import { useEffect, useState, use } from "react";
+import { useEffect, useState, use, useRef, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { format } from "date-fns";
@@ -75,6 +75,8 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [comments, setComments] = useState<Comment[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [imageProcessing, setImageProcessing] = useState(false);
+  const pollRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [newComment, setNewComment] = useState("");
   const [isSubmittingComment, setIsSubmittingComment] = useState(false);
   const [commentError, setCommentError] = useState("");
@@ -85,16 +87,24 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const [isLoadingGifs, setIsLoadingGifs] = useState(false);
 
   useEffect(() => {
-    loadPost();
+    loadPost().then(p => {
+      if (p && (!p.imageUrls || p.imageUrls.length === 0)) {
+        api.images.getByPost(Number(id)).then(res => {
+          const pending = (res.data ?? []).some(img => img.status === 'PENDING' || img.status === 'PROCESSING');
+          if (pending) startImagePolling(Number(id));
+        }).catch(() => {});
+      }
+    });
     loadComments();
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  const loadPost = async () => {
+  const loadPost = useCallback(async () => {
     try {
       const response = await api.posts.getById(Number(id));
       if (response.data) {
         setPost(response.data);
+        return response.data;
       }
     } catch (error) {
       console.log("Error loading post:", error);
@@ -102,7 +112,40 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
     } finally {
       setIsLoading(false);
     }
-  };
+    return null;
+  }, [id]);
+
+  const startImagePolling = useCallback((postId: number) => {
+    if (pollRef.current) return;
+    setImageProcessing(true);
+    const deadline = Date.now() + 30_000;
+    pollRef.current = setInterval(async () => {
+      if (Date.now() > deadline) {
+        clearInterval(pollRef.current!);
+        pollRef.current = null;
+        setImageProcessing(false);
+        return;
+      }
+      try {
+        const res = await api.images.getByPost(postId);
+        const images = res.data ?? [];
+        const allDone = images.length > 0 && images.every(img => img.status === 'COMPLETED' || img.status === 'FAILED');
+        if (allDone) {
+          clearInterval(pollRef.current!);
+          pollRef.current = null;
+          setImageProcessing(false);
+          const postRes = await api.posts.getById(postId);
+          if (postRes.data) setPost(postRes.data);
+        }
+      } catch {
+        // ignore transient errors
+      }
+    }, 2000);
+  }, []);
+
+  useEffect(() => {
+    return () => { if (pollRef.current) clearInterval(pollRef.current); };
+  }, []);
 
   const loadComments = async () => {
     try {
@@ -270,14 +313,11 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
           {/* Tags */}
           {post.tags && post.tags.length > 0 && (
             <div className="mb-4 flex flex-wrap gap-2">
-              {post.tags.map((tag) => {
-                const tagName = typeof tag === 'string' ? tag : tag.name;
-                return (
-                  <Badge key={tagName} variant="secondary">
-                    {tagName}
+              {post.tags.map((tag) => (
+                  <Badge key={tag} variant="secondary">
+                    {tag}
                   </Badge>
-                );
-              })}
+                ))}
             </div>
           )}
 
@@ -292,15 +332,15 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
               <div className="flex h-8 w-8 items-center justify-center rounded-full bg-secondary">
                 <User className="h-4 w-4" />
               </div>
-              <span>{typeof post.author === 'string' ? post.author : post.authorName || 'Unknown'}</span>
+              <span>{post.author}</span>
             </div>
             <div className="flex items-center gap-1">
               <Calendar className="h-4 w-4" />
-              <time dateTime={post.postedAt || post.createdAt || post.updatedAt}>
-                {formatDate(post.postedAt || post.createdAt || post.updatedAt || post.lastUpdated || "", "MMM d, yyyy")}
+              <time dateTime={post.postedAt}>
+                {formatDate(post.postedAt, "MMM d, yyyy")}
               </time>
             </div>
-            {post.lastUpdated && post.lastUpdated !== (post.postedAt || post.createdAt) && (
+            {post.lastUpdated && post.lastUpdated !== post.postedAt && (
               <div className="flex items-center gap-1">
                 <Clock className="h-4 w-4" />
                 <span>
@@ -358,6 +398,23 @@ function PostDetailPage({ params }: { params: Promise<{ id: string }> }) {
                   </AlertDialogFooter>
                 </AlertDialogContent>
               </AlertDialog>
+            </div>
+          )}
+
+          {/* Hero Image */}
+          {imageProcessing && (
+            <div className="mt-8 flex h-48 items-center justify-center gap-3 overflow-hidden rounded-xl border border-border bg-muted text-sm text-muted-foreground">
+              <Loader2 className="h-4 w-4 animate-spin" />
+              Processing image…
+            </div>
+          )}
+          {!imageProcessing && post.imageUrls && post.imageUrls.length > 0 && (
+            <div className="mt-8 overflow-hidden rounded-xl border border-border">
+              <img
+                src={post.imageUrls[0]}
+                alt={post.title}
+                className="w-full max-h-[480px] object-cover"
+              />
             </div>
           )}
 

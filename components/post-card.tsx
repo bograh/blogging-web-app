@@ -25,34 +25,10 @@ export function PostCard({ post }: PostCardProps) {
     }
   };
 
-  // Handle different field names from different API endpoints
-  // Support nested author object from GraphQL
-  const getAuthorName = () => {
-    if (typeof post.author === 'object' && post.author?.username) {
-      return post.author.username;
-    }
-    return post.authorName || (typeof post.author === 'string' ? post.author : '') || "Unknown";
-  };
-
-  const authorName = getAuthorName();
-  const createdAt = post.createdAt || post.postedAt || post.updatedAt || "";
-  const commentsCount = post.commentsCount ?? post.totalComments ?? 0;
-
-  // Handle tags - support both string[] and {name: string}[]
-  const getTags = (): string[] => {
-    if (!post.tags) return [];
-    if (Array.isArray(post.tags) && post.tags.length > 0) {
-      if (typeof post.tags[0] === 'string') {
-        return post.tags as string[];
-      }
-      if (typeof post.tags[0] === 'object' && 'name' in post.tags[0]) {
-        return (post.tags as { name: string }[]).map(t => t.name);
-      }
-    }
-    return [];
-  };
-
-  const tags = getTags();
+  const authorName = post.author;
+  const createdAt = post.postedAt || post.lastUpdated;
+  const commentsCount = post.totalComments;
+  const tags = post.tags ?? [];
 
   return (
     <article className="group relative rounded-xl border border-border bg-card p-6 transition-all hover:border-primary/50 hover:bg-card/80">
@@ -90,7 +66,7 @@ export function PostCard({ post }: PostCardProps) {
         <div className="flex items-center justify-between pt-2 text-xs text-muted-foreground">
           <div className="flex items-center gap-2">
             <Link
-              href={`/profile/${authorName}`}
+              href={`/profile/${post.authorId}`}
               className="relative z-20 flex items-center gap-2 transition-colors hover:text-primary"
               onClick={(e) => e.stopPropagation()}
             >

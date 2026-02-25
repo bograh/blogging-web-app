@@ -7,17 +7,27 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Badge } from "@/components/ui/badge";
 import { Activity, TrendingUp, Clock, BarChart3, Loader2, RefreshCw, Download, Trash2, CheckCircle, XCircle, Database, Zap } from "lucide-react";
 import { toast } from "sonner";
-import type { MetricsResponse, MetricsSummary, MethodMetric, CacheMetricsResponse, CacheSummary } from "@/types";
+import type {
+  MetricsResponse,
+  MetricsSummary,
+  MethodMetric,
+  CacheMetricsResponse,
+  CacheSummary,
+  RuntimeMetricsResponse,
+} from "@/types";
 
 export default function AdminMetricsPage() {
   const [metrics, setMetrics] = useState<MetricsResponse | null>(null);
   const [summary, setSummary] = useState<MetricsSummary | null>(null);
   const [cacheMetrics, setCacheMetrics] = useState<CacheMetricsResponse | null>(null);
   const [cacheSummary, setCacheSummary] = useState<CacheSummary | null>(null);
+  const [runtimeMetrics, setRuntimeMetrics] = useState<RuntimeMetricsResponse | null>(null);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   const [isResetting, setIsResetting] = useState(false);
+  const [isRuntimeExporting, setIsRuntimeExporting] = useState(false);
+  const [isRuntimeResetting, setIsRuntimeResetting] = useState(false);
 
   useEffect(() => {
     loadMetrics();
@@ -26,11 +36,12 @@ export default function AdminMetricsPage() {
   const loadMetrics = async () => {
     setIsLoading(true);
     try {
-      const [metricsRes, summaryRes, cacheMetricsRes, cacheSummaryRes] = await Promise.all([
-        api.metrics.getAll(),
-        api.metrics.getSummary(),
+      const [metricsRes, summaryRes, cacheMetricsRes, cacheSummaryRes, runtimeRes] = await Promise.all([
+        api.metrics.getPerformanceMetrics(),
+        api.metrics.getPerformanceSummary(),
         api.metrics.getCacheMetrics(),
         api.metrics.getCacheSummary(),
+        api.metrics.getRuntimeMetrics(),
       ]);
 
       if (metricsRes.data) {
@@ -44,6 +55,9 @@ export default function AdminMetricsPage() {
       }
       if (cacheSummaryRes.data) {
         setCacheSummary(cacheSummaryRes.data);
+      }
+      if (runtimeRes.data) {
+        setRuntimeMetrics(runtimeRes.data);
       }
     } catch (error) {
       console.log("Error loading metrics:", error);
@@ -63,7 +77,7 @@ export default function AdminMetricsPage() {
   const handleExport = async () => {
     setIsExporting(true);
     try {
-      await api.metrics.exportToLog();
+      await api.metrics.exportAllMetrics();
       toast.success("Metrics exported to logs");
     } catch (error) {
       console.log("Error exporting metrics:", error);
@@ -76,7 +90,10 @@ export default function AdminMetricsPage() {
   const handleReset = async () => {
     setIsResetting(true);
     try {
-      await api.metrics.reset();
+      await Promise.all([
+        api.metrics.resetPerformanceMetrics(),
+        api.metrics.resetCacheMetrics(),
+      ]);
       toast.success("Metrics reset successfully");
       await loadMetrics();
     } catch (error) {
@@ -84,6 +101,33 @@ export default function AdminMetricsPage() {
       toast.error("Failed to reset metrics");
     } finally {
       setIsResetting(false);
+    }
+  };
+
+  const handleRuntimeExport = async () => {
+    setIsRuntimeExporting(true);
+    try {
+      await api.metrics.exportRuntimeMetrics();
+      toast.success("Runtime metrics exported to CSV");
+    } catch (error) {
+      console.log("Error exporting runtime metrics:", error);
+      toast.error("Failed to export runtime metrics");
+    } finally {
+      setIsRuntimeExporting(false);
+    }
+  };
+
+  const handleRuntimeReset = async () => {
+    setIsRuntimeResetting(true);
+    try {
+      await api.metrics.resetRuntimeMetrics();
+      toast.success("Runtime metrics reset successfully");
+      await loadMetrics();
+    } catch (error) {
+      console.log("Error resetting runtime metrics:", error);
+      toast.error("Failed to reset runtime metrics");
+    } finally {
+      setIsRuntimeResetting(false);
     }
   };
 
@@ -99,11 +143,38 @@ export default function AdminMetricsPage() {
   };
 
   // Convert metrics map to sorted array
-  const getMetricsArray = () => {
+  const getMetricsArray = (): MethodMetric[] => {
     if (!metrics?.metrics) return [];
-    return Object.entries(metrics.metrics)
-      .map(([_, metric]) => metric)
-      .sort((a, b) => b.totalCalls - a.totalCalls);
+
+    const methodMetrics = Array.isArray(metrics.metrics)
+      ? metrics.metrics
+      : Object.values(metrics.metrics);
+
+    return methodMetrics.sort((a, b) => b.totalCalls - a.totalCalls);
+  };
+
+  const getCacheArray = () => {
+    if (!cacheMetrics?.caches) return [];
+    return Array.isArray(cacheMetrics.caches)
+      ? cacheMetrics.caches
+      : Object.values(cacheMetrics.caches);
+  };
+
+  const getRateValue = (rate: string | number) => {
+    if (typeof rate === "number") return rate;
+    return parseFloat(rate.replace("%", ""));
+  };
+
+  const formatPercent = (value: number) => `${value.toFixed(2)}%`;
+
+  const formatThroughput = (value: number) => `${value.toFixed(2)} req/s`;
+
+  const getEndpointRequestCount = (endpoint: RuntimeMetricsResponse["endpoints"][number]) => {
+    return endpoint.requestCount ?? endpoint.totalRequests ?? 0;
+  };
+
+  const getEndpointErrorCount = (endpoint: RuntimeMetricsResponse["endpoints"][number]) => {
+    return endpoint.errorCount ?? endpoint.errorRequests ?? 0;
   };
 
   const metricsArray = getMetricsArray();
@@ -205,6 +276,139 @@ export default function AdminMetricsPage() {
       )}
 
       {/* Cache Metrics Summary */}
+      {runtimeMetrics && (
+        <div>
+          <div className="mb-4 flex items-center justify-between">
+            <h2 className="text-2xl font-bold text-foreground flex items-center gap-2">
+              <Activity className="h-6 w-6" />
+              Runtime API Metrics
+            </h2>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleRuntimeExport}
+                disabled={isRuntimeExporting}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                Export Runtime CSV
+              </Button>
+              <Button
+                variant="destructive"
+                size="sm"
+                onClick={handleRuntimeReset}
+                disabled={isRuntimeResetting}
+              >
+                <Trash2 className="h-4 w-4 mr-2" />
+                Reset Runtime
+              </Button>
+            </div>
+          </div>
+
+          <div className="grid gap-6 md:grid-cols-4">
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Total Requests</CardTitle>
+                <Activity className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{runtimeMetrics.totalRequests.toLocaleString()}</div>
+                <p className="text-xs text-muted-foreground">Since process start</p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Average Latency</CardTitle>
+                <Clock className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{runtimeMetrics.averageLatencyMs.toFixed(2)}ms</div>
+                <p className="text-xs text-muted-foreground">
+                  Min {runtimeMetrics.minLatencyMs}ms · Max {runtimeMetrics.maxLatencyMs}ms
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Throughput</CardTitle>
+                <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold">{formatThroughput(runtimeMetrics.throughputReqPerSec)}</div>
+                <p className="text-xs text-muted-foreground">
+                  Last 60s: {formatThroughput(runtimeMetrics.throughputLast60SecondsReqPerSec)}
+                </p>
+              </CardContent>
+            </Card>
+
+            <Card>
+              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                <CardTitle className="text-sm font-medium">Error Rate</CardTitle>
+                <XCircle className="h-4 w-4 text-destructive" />
+              </CardHeader>
+              <CardContent>
+                <div className="text-2xl font-bold text-destructive">{formatPercent(runtimeMetrics.errorRatePercent)}</div>
+                <p className="text-xs text-muted-foreground">{runtimeMetrics.totalErrors} total errors</p>
+              </CardContent>
+            </Card>
+          </div>
+
+          <Card className="mt-6">
+            <CardHeader>
+              <CardTitle>Runtime Endpoint Details</CardTitle>
+              <CardDescription>Per-endpoint latency, throughput, and errors</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {(runtimeMetrics.endpoints || []).map((endpoint) => (
+                  <div key={`${endpoint.endpoint}-${endpoint.method || 'ANY'}`} className="rounded-lg border border-border bg-card p-4">
+                    <div className="flex items-start justify-between gap-4">
+                      <div>
+                        <div className="font-medium text-foreground">{endpoint.endpoint}</div>
+                        {endpoint.method && (
+                          <div className="text-xs text-muted-foreground mt-1">Method: {endpoint.method}</div>
+                        )}
+                      </div>
+                      <Badge variant={endpoint.errorRatePercent > 1 ? "destructive" : "secondary"}>
+                        {formatPercent(endpoint.errorRatePercent)} errors
+                      </Badge>
+                    </div>
+
+                    <div className="mt-3 grid grid-cols-2 md:grid-cols-4 gap-3 text-sm">
+                      <div>
+                        <span className="text-muted-foreground">Requests: </span>
+                        <span className="font-medium">{getEndpointRequestCount(endpoint)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Errors: </span>
+                        <span className="font-medium">{getEndpointErrorCount(endpoint)}</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Avg Latency: </span>
+                        <span className="font-medium">{endpoint.averageLatencyMs.toFixed(2)}ms</span>
+                      </div>
+                      <div>
+                        <span className="text-muted-foreground">Throughput: </span>
+                        <span className="font-medium">{formatThroughput(endpoint.throughputReqPerSec)}</span>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+
+                {(!runtimeMetrics.endpoints || runtimeMetrics.endpoints.length === 0) && (
+                  <div className="py-8 text-center text-muted-foreground">
+                    No runtime endpoint metrics available
+                  </div>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      )}
+
+      {/* Cache Metrics Summary */}
       {cacheSummary && (
         <div>
           <h2 className="mb-4 text-2xl font-bold text-foreground flex items-center gap-2">
@@ -262,7 +466,7 @@ export default function AdminMetricsPage() {
       )}
 
       {/* Individual Cache Metrics */}
-      {cacheMetrics && cacheMetrics.caches && Object.keys(cacheMetrics.caches).length > 0 && (
+      {cacheMetrics && getCacheArray().length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle className="flex items-center gap-2">
@@ -273,7 +477,7 @@ export default function AdminMetricsPage() {
           </CardHeader>
           <CardContent>
             <div className="space-y-4">
-              {Object.values(cacheMetrics.caches).map((cache) => (
+              {getCacheArray().map((cache) => (
                 <div
                   key={cache.cacheName}
                   className="rounded-lg border border-border bg-card p-4"
@@ -282,7 +486,7 @@ export default function AdminMetricsPage() {
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-2">
                         <code className="text-sm font-mono font-medium">{cache.cacheName}</code>
-                        <Badge variant={parseFloat(cache.hitRate) > 50 ? "default" : "secondary"}>
+                        <Badge variant={getRateValue(cache.hitRate) > 50 ? "default" : "secondary"}>
                           {cache.hitRate} hit rate
                         </Badge>
                       </div>
@@ -316,7 +520,7 @@ export default function AdminMetricsPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Miss Rate: </span>
-                        <span className={`font-medium ${parseFloat(cache.missRate) > 50 ? 'text-destructive' : ''}`}>
+                        <span className={`font-medium ${getRateValue(cache.missRate) > 50 ? 'text-destructive' : ''}`}>
                           {cache.missRate}
                         </span>
                       </div>
@@ -418,7 +622,7 @@ export default function AdminMetricsPage() {
                       </div>
                       <div>
                         <span className="text-muted-foreground">Total Time: </span>
-                        <span className="font-medium">{formatTime(method.totalExecutionTime)}</span>
+                        <span className="font-medium">{formatTime(method.totalExecutionTime ?? 0)}</span>
                       </div>
                       <div>
                         <span className="text-muted-foreground">Success Rate: </span>

@@ -318,6 +318,96 @@ GET /api/posts/1
 
 ---
 
+### GET `/posts/popular`
+
+Get top popular posts using indexed and cached retrieval.
+
+**Request:**
+
+```http
+GET /api/posts/popular?limit=10
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| limit | int | 10 | Max number of posts to return (1-50) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "success",
+  "message": "Popular posts retrieved successfully",
+  "data": [
+    {
+      "id": 1,
+      "title": "Getting Started with Spring Boot",
+      "body": "Spring Boot makes it easy...",
+      "author": "johndoe",
+      "authorId": "550e8400-e29b-41d4-a716-446655440000",
+      "tags": ["java", "spring", "tutorial"],
+      "postedAt": "2024-01-15T10:30:00",
+      "lastUpdated": "2024-01-16T09:15:00",
+      "totalComments": 35
+    }
+  ]
+}
+```
+
+---
+
+### GET `/posts/trending`
+
+Get top trending posts using indexed and cached retrieval.
+
+**Request:**
+
+```http
+GET /api/posts/trending?limit=10
+```
+
+**Query Parameters:**
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| limit | int | 10 | Max number of posts to return (1-50) |
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "success",
+  "message": "Trending posts retrieved successfully",
+  "data": [
+    {
+      "id": 2,
+      "title": "Spring Boot 3 Performance Tuning",
+      "body": "A practical optimization guide...",
+      "author": "janedoe",
+      "authorId": "5f6f8d4e-50c7-4221-9e28-7b18b8f8f23d",
+      "tags": ["spring", "performance"],
+      "postedAt": "2024-01-18T11:20:00",
+      "lastUpdated": "2024-01-20T08:45:00",
+      "totalComments": 19
+    }
+  ]
+}
+```
+
+---
+
+### Optimization Notes (Posts Retrieval)
+
+- Popular/trending endpoints use in-memory ranking indexes (`popularIndex`, `trendingIndex`).
+- Ranking lists are cache-backed with short TTL and write-time eviction.
+- Post page response mapping uses bulk comment-count aggregation to avoid N+1 calls.
+
+Reference:
+
+- [Retrieval Optimization Report](../docs/performance/RETRIEVAL_OPTIMIZATION_REPORT.md)
+
+---
+
 ### PUT `/posts/{postId}`
 
 Update a blog post (author only).
@@ -960,39 +1050,413 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 > **Note:** All metrics endpoints typically require admin access.
 
-### GET `/metrics/performance`
+### Endpoint Matrix
 
-Get all performance metrics.
+#### Core Performance
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/metrics/performance` | Get all method-level performance metrics |
+| GET | `/metrics/performance/{layer}/{methodName}` | Get metrics by layer/name |
+| GET | `/metrics/performance/method/{methodName}` | Get metrics by full method name |
+| GET | `/metrics/performance/summary` | Get aggregated method metrics summary |
+| DELETE | `/metrics/performance/reset` | Reset method metrics |
+| POST | `/metrics/performance/export-log` | Export performance metrics to logs/file |
+
+#### Runtime API Metrics (Latency / Throughput / Memory)
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/metrics/performance/runtime` | Runtime API snapshot (latency, req/sec, memory) |
+| POST | `/metrics/performance/runtime/export` | Export runtime snapshot to CSV table |
+| DELETE | `/metrics/performance/runtime/reset` | Reset runtime counters |
+
+#### Cache Metrics
+
+| Method | Endpoint | Description |
+|---|---|---|
+| GET | `/metrics/performance/cache` | Get all cache metrics |
+| GET | `/metrics/performance/cache/{cacheName}` | Get specific cache metrics |
+| GET | `/metrics/performance/cache/summary` | Get cache summary |
+| DELETE | `/metrics/performance/cache/reset` | Reset cache metrics |
+| POST | `/metrics/performance/cache/export-log` | Export cache metrics to logs/file |
+| POST | `/metrics/performance/export-all` | Export combined performance + cache metrics |
+
+#### Baseline, Snapshot & Comparison
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/metrics/performance/baseline` | Save PRE_CACHE baseline snapshot |
+| POST | `/metrics/performance/postcache` | Save POST_CACHE snapshot |
+| GET | `/metrics/performance/baseline/latest` | Latest PRE_CACHE snapshot |
+| GET | `/metrics/performance/postcache/latest` | Latest POST_CACHE snapshot |
+| GET | `/metrics/performance/baseline/history` | PRE_CACHE history |
+| GET | `/metrics/performance/postcache/history` | POST_CACHE history |
+| GET | `/metrics/performance/comparison` | Compare with latest pre-cache file |
+| GET | `/metrics/performance/comparison/{fileName}` | Compare with selected pre-cache file |
+| GET | `/metrics/performance/comparison/pre-cache-files` | List available pre-cache files |
+| GET | `/metrics/performance/comparison/database` | Compare latest PRE_CACHE vs POST_CACHE (DB) |
+| GET | `/metrics/performance/comparison/database/{preCacheId}/{postCacheId}` | Compare specific DB snapshots |
+
+#### Persistence & Simulation
+
+| Method | Endpoint | Description |
+|---|---|---|
+| POST | `/metrics/performance/save` | Save performance snapshot |
+| POST | `/metrics/performance/cache/save` | Save cache snapshot |
+| POST | `/metrics/performance/save-all` | Save performance + cache snapshots |
+| GET | `/metrics/performance/history` | Performance snapshot history |
+| GET | `/metrics/performance/cache/history` | Cache snapshot history |
+| POST | `/metrics/performance/simulation/run` | Run full cache simulation |
+| POST | `/metrics/performance/simulation/method/{methodType}` | Run method simulation |
+| POST | `/metrics/performance/simulation/getAllPosts` | Simulate getAllPosts |
+| POST | `/metrics/performance/simulation/getPostById/{postId}` | Simulate getPostById |
+| POST | `/metrics/performance/simulation/getCommentsByPostId/{postId}` | Simulate getCommentsByPostId |
+| POST | `/metrics/performance/simulation/getPopularTags` | Simulate getPopularTags |
+
+### Runtime Metrics Example
 
 **Request:**
 
 ```
-GET /api/metrics/performance
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+GET /api/metrics/performance/runtime?limit=10
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
 
 ```json
 {
-  "SERVICE::createPost": {
-    "totalCalls": 150,
-    "successCount": 148,
-    "failureCount": 2,
-    "averageExecutionTime": 45.6,
-    "minExecutionTime": 12,
-    "maxExecutionTime": 234,
-    "lastExecutionTime": 38
+  "timestamp": "2026-02-23T19:00:00",
+  "uptimeSeconds": 3600,
+  "totalRequests": 2400,
+  "totalErrors": 12,
+  "errorRatePercent": 0.5,
+  "averageLatencyMs": 48.3,
+  "minLatencyMs": 2,
+  "maxLatencyMs": 418,
+  "throughputReqPerSec": 0.67,
+  "throughputLast60SecondsReqPerSec": 2.1,
+  "usedMemoryMb": 280,
+  "committedMemoryMb": 512,
+  "maxMemoryMb": 2048,
+  "endpoints": [
+    {
+      "endpoint": "GET /api/posts",
+      "totalRequests": 800,
+      "errorRequests": 1,
+      "errorRatePercent": 0.13,
+      "averageLatencyMs": 35.4,
+      "minLatencyMs": 3,
+      "maxLatencyMs": 200,
+      "throughputReqPerSec": 0.22
+    }
+  ]
+}
+```
+
+---
+
+### POST `/metrics/performance/runtime/export`
+
+Export runtime metrics as CSV table.
+
+**Request:**
+
+```
+POST /api/metrics/performance/runtime/export?limit=25
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "success",
+  "message": "Runtime metrics exported to metrics/runtime/20260224-091522-runtime-metrics.csv"
+}
+```
+
+---
+
+### DELETE `/metrics/performance/runtime/reset`
+
+Reset runtime counters (latency, throughput, memory trend counters).
+
+**Request:**
+
+```
+DELETE /api/metrics/performance/runtime/reset
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "success",
+  "message": "Runtime API metrics have been reset"
+}
+```
+
+---
+
+### POST `/metrics/performance/save`
+
+Persist current method-level metrics snapshot.
+
+**Request:**
+
+```
+POST /api/metrics/performance/save?snapshotType=MANUAL
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "67bcf2690af45a151acde001",
+  "timestamp": "2026-02-24T09:20:30",
+  "snapshotType": "MANUAL",
+  "totalMethodsMonitored": 32,
+  "totalExecutions": 1450,
+  "totalFailures": 8,
+  "overallAverageExecutionTime": 37.41,
+  "overallSuccessRate": 99.45,
+  "methodMetrics": [
+    {
+      "methodName": "PostService.getAllPosts(..)",
+      "totalCalls": 180,
+      "successfulCalls": 180,
+      "failedCalls": 0,
+      "averageExecutionTime": 23,
+      "minExecutionTime": 5,
+      "maxExecutionTime": 211
+    }
+  ]
+}
+```
+
+---
+
+### POST `/metrics/performance/baseline`
+
+Save PRE_CACHE baseline and reset active in-memory metrics.
+
+**Request:**
+
+```
+POST /api/metrics/performance/baseline
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "67bcf2690af45a151acde010",
+  "timestamp": "2026-02-24T09:21:01",
+  "snapshotType": "PRE_CACHE",
+  "totalMethodsMonitored": 24,
+  "totalExecutions": 900,
+  "totalFailures": 2,
+  "overallAverageExecutionTime": 41.82,
+  "overallSuccessRate": 99.78,
+  "methodMetrics": []
+}
+```
+
+---
+
+### POST `/metrics/performance/postcache`
+
+Save POST_CACHE snapshot for comparison.
+
+**Request:**
+
+```
+POST /api/metrics/performance/postcache
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "67bcf2690af45a151acde011",
+  "timestamp": "2026-02-24T09:22:10",
+  "snapshotType": "POST_CACHE",
+  "totalMethodsMonitored": 24,
+  "totalExecutions": 920,
+  "totalFailures": 1,
+  "overallAverageExecutionTime": 27.16,
+  "overallSuccessRate": 99.89,
+  "methodMetrics": []
+}
+```
+
+---
+
+### GET `/metrics/performance/comparison/database`
+
+Compare latest PRE_CACHE and POST_CACHE snapshots from MongoDB.
+
+**Request:**
+
+```
+GET /api/metrics/performance/comparison/database
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "preCacheFile": "Database: PRE_CACHE(67bcf2690af45a151acde010) @ 2026-02-24T09:21:01",
+  "postCacheTimestamp": "2026-02-24T09:22:10",
+  "methodComparisons": [
+    {
+      "methodName": "PostService.getAllPosts(..)",
+      "preCache": {
+        "totalCalls": 120,
+        "averageExecutionTime": 58,
+        "minExecutionTime": 11,
+        "maxExecutionTime": 322
+      },
+      "postCache": {
+        "totalCalls": 130,
+        "averageExecutionTime": 31,
+        "minExecutionTime": 6,
+        "maxExecutionTime": 154
+      },
+      "improvement": {
+        "averageTimeReduction": 27,
+        "averageTimeReductionPercent": "46.55%",
+        "minTimeReduction": 5,
+        "maxTimeReduction": 168,
+        "improved": true
+      }
+    }
+  ],
+  "summary": {
+    "methodsCompared": 18,
+    "methodsImproved": 14,
+    "methodsDegraded": 2,
+    "methodsUnchanged": 2,
+    "overallAvgImprovementPercent": "31.42%",
+    "bestImprovedMethod": "PostService.getAllPosts(..)",
+    "bestImprovementPercent": "46.55%",
+    "worstMethod": "CommentService.getAllCommentsByPostId(..)",
+    "worstChangePercent": "-8.21%"
   },
-  "REPOSITORY::findById": {
-    "totalCalls": 5000,
-    "successCount": 4998,
-    "failureCount": 2,
-    "averageExecutionTime": 3.2,
-    "minExecutionTime": 1,
-    "maxExecutionTime": 45,
-    "lastExecutionTime": 2
+  "timestamp": "2026-02-24T09:22:15"
+}
+```
+
+---
+
+### GET `/metrics/performance/history`
+
+Get historical performance snapshots.
+
+**Request:**
+
+```
+GET /api/metrics/performance/history?limit=5
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "67bcf2690af45a151acde011",
+    "timestamp": "2026-02-24T09:22:10",
+    "snapshotType": "POST_CACHE",
+    "totalMethodsMonitored": 24,
+    "totalExecutions": 920,
+    "totalFailures": 1,
+    "overallAverageExecutionTime": 27.16,
+    "overallSuccessRate": 99.89,
+    "methodMetrics": []
   }
+]
+```
+
+---
+
+### POST `/metrics/performance/simulation/method/{methodType}`
+
+Run PRE_CACHE vs POST_CACHE simulation for one method.
+
+**Request (method without resourceId):**
+
+```
+POST /api/metrics/performance/simulation/method/getAllPosts
+Authorization: Bearer <admin-token>
+```
+
+**Request (method with resourceId):**
+
+```
+POST /api/metrics/performance/simulation/method/getPostById?resourceId=1
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "method": "getPostById",
+  "resourceId": 1,
+  "preCache": {
+    "avgMs": 42,
+    "minMs": 19,
+    "maxMs": 88
+  },
+  "postCache": {
+    "avgMs": 17,
+    "minMs": 6,
+    "maxMs": 32
+  },
+  "improvementPercent": 59.52,
+  "improved": true
+}
+```
+
+---
+
+### GET `/metrics/performance`
+
+Get all method-level performance metrics.
+
+**Request:**
+
+```
+GET /api/metrics/performance
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "totalMethods": 2,
+  "timestamp": "2026-02-24T10:20:00",
+  "metrics": [
+    {
+      "methodName": "PostService.getAllPosts(..)",
+      "totalCalls": 120,
+      "successfulCalls": 120,
+      "failedCalls": 0,
+      "averageExecutionTime": 29,
+      "minExecutionTime": 7,
+      "maxExecutionTime": 188,
+      "successRate": 100.0
+    }
+  ]
 }
 ```
 
@@ -1000,26 +1464,55 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### GET `/metrics/performance/{layer}/{methodName}`
 
-Get metrics for a specific method.
+Get one method metric by layer and method name.
 
 **Request:**
 
 ```
-GET /api/metrics/performance/SERVICE/createPost
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+GET /api/metrics/performance/SERVICE/getAllPosts
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
 
 ```json
 {
-  "totalCalls": 150,
-  "successCount": 148,
-  "failureCount": 2,
-  "averageExecutionTime": 45.6,
-  "minExecutionTime": 12,
-  "maxExecutionTime": 234,
-  "lastExecutionTime": 38
+  "methodName": "SERVICE::getAllPosts",
+  "totalCalls": 120,
+  "successfulCalls": 120,
+  "failedCalls": 0,
+  "averageExecutionTime": 29,
+  "minExecutionTime": 7,
+  "maxExecutionTime": 188,
+  "successRate": 100.0
+}
+```
+
+---
+
+### GET `/metrics/performance/method/{methodName}`
+
+Get one method metric by full method name.
+
+**Request:**
+
+```
+GET /api/metrics/performance/method/PostService.getAllPosts(..)
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "methodName": "PostService.getAllPosts(..)",
+  "totalCalls": 120,
+  "successfulCalls": 120,
+  "failedCalls": 0,
+  "averageExecutionTime": 29,
+  "minExecutionTime": 7,
+  "maxExecutionTime": 188,
+  "successRate": 100.0
 }
 ```
 
@@ -1027,26 +1520,25 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### GET `/metrics/performance/summary`
 
-Get performance metrics summary.
+Get aggregated performance summary.
 
 **Request:**
 
 ```
 GET /api/metrics/performance/summary
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
 
 ```json
 {
-  "totalMethodsMonitored": 45,
-  "totalCalls": 125000,
-  "overallAverageExecutionTime": 23.5,
-  "overallFailureRate": 0.02,
-  "slowestMethod": "SERVICE::generateReport",
-  "fastestMethod": "REPOSITORY::existsById",
-  "mostCalledMethod": "REPOSITORY::findById"
+  "totalMethodsMonitored": 24,
+  "totalExecutions": 920,
+  "totalFailures": 1,
+  "overallAverageExecutionTime": "27.16 ms",
+  "overallSuccessRate": 99.89,
+  "timestamp": "2026-02-24T10:21:05"
 }
 ```
 
@@ -1054,13 +1546,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### DELETE `/metrics/performance/reset`
 
-Reset all performance metrics.
+Reset method-level metrics.
 
 **Request:**
 
 ```
 DELETE /api/metrics/performance/reset
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
@@ -1076,13 +1568,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### POST `/metrics/performance/export-log`
 
-Export performance metrics to log file.
+Export method-level metrics to logs/files.
 
 **Request:**
 
 ```
 POST /api/metrics/performance/export-log
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
@@ -1104,37 +1596,29 @@ Get all cache metrics.
 
 ```
 GET /api/metrics/performance/cache
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
 
 ```json
 {
-  "users": {
-    "cacheName": "users",
-    "hits": 4500,
-    "misses": 500,
-    "hitRate": "90.00%",
-    "missRate": "10.00%",
-    "totalRequests": 5000,
-    "puts": 500,
-    "evictions": 50,
-    "clears": 2,
-    "timestamp": "2024-01-16T15:30:00"
-  },
-  "posts": {
-    "cacheName": "posts",
-    "hits": 12000,
-    "misses": 800,
-    "hitRate": "93.75%",
-    "missRate": "6.25%",
-    "totalRequests": 12800,
-    "puts": 800,
-    "evictions": 100,
-    "clears": 1,
-    "timestamp": "2024-01-16T15:30:00"
-  }
+  "totalCaches": 3,
+  "timestamp": "2026-02-24T10:22:00",
+  "caches": [
+    {
+      "cacheName": "posts",
+      "hits": 1200,
+      "misses": 140,
+      "hitRate": "89.55%",
+      "missRate": "10.45%",
+      "totalRequests": 1340,
+      "puts": 140,
+      "evictions": 11,
+      "clears": 1,
+      "timestamp": "2026-02-24T10:22:00"
+    }
+  ]
 }
 ```
 
@@ -1142,29 +1626,29 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### GET `/metrics/performance/cache/{cacheName}`
 
-Get metrics for a specific cache.
+Get one cache metric by name.
 
 **Request:**
 
 ```
-GET /api/metrics/performance/cache/users
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+GET /api/metrics/performance/cache/posts
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
 
 ```json
 {
-  "cacheName": "users",
-  "hits": 4500,
-  "misses": 500,
-  "hitRate": "90.00%",
-  "missRate": "10.00%",
-  "totalRequests": 5000,
-  "puts": 500,
-  "evictions": 50,
-  "clears": 2,
-  "timestamp": "2024-01-16T15:30:00"
+  "cacheName": "posts",
+  "hits": 1200,
+  "misses": 140,
+  "hitRate": "89.55%",
+  "missRate": "10.45%",
+  "totalRequests": 1340,
+  "puts": 140,
+  "evictions": 11,
+  "clears": 1,
+  "timestamp": "2026-02-24T10:22:00"
 }
 ```
 
@@ -1172,25 +1656,35 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### GET `/metrics/performance/cache/summary`
 
-Get cache summary statistics.
+Get aggregated cache summary.
 
 **Request:**
 
 ```
 GET /api/metrics/performance/cache/summary
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
 
 ```json
 {
-  "totalCaches": 4,
-  "overallHitRate": "91.50%",
-  "totalHits": 25000,
-  "totalMisses": 2300,
-  "bestPerformingCache": "tags",
-  "worstPerformingCache": "comments"
+  "totalCaches": 3,
+  "totalHits": 3400,
+  "totalMisses": 260,
+  "totalRequests": 3660,
+  "overallHitRate": "92.90%",
+  "totalPuts": 260,
+  "totalEvictions": 17,
+  "bestPerformingCache": {
+    "name": "posts",
+    "hitRate": "89.55%"
+  },
+  "worstPerformingCache": {
+    "name": "comments",
+    "hitRate": "81.22%"
+  },
+  "timestamp": "2026-02-24T10:22:03"
 }
 ```
 
@@ -1204,7 +1698,7 @@ Reset cache metrics.
 
 ```
 DELETE /api/metrics/performance/cache/reset
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
@@ -1220,13 +1714,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### POST `/metrics/performance/cache/export-log`
 
-Export cache metrics to log file.
+Export cache metrics to logs/files.
 
 **Request:**
 
 ```
 POST /api/metrics/performance/cache/export-log
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
@@ -1242,13 +1736,13 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### POST `/metrics/performance/export-all`
 
-Export all metrics (performance + cache) to log file.
+Export combined method + cache metrics.
 
 **Request:**
 
 ```
 POST /api/metrics/performance/export-all
-Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+Authorization: Bearer <admin-token>
 ```
 
 **Response:** `200 OK`
@@ -1257,6 +1751,473 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 {
   "status": "success",
   "message": "Combined performance and cache metrics exported to application log and metrics folder"
+}
+```
+
+---
+
+### GET `/metrics/performance/baseline/latest`
+
+Get latest PRE_CACHE snapshot.
+
+**Request:**
+
+```
+GET /api/metrics/performance/baseline/latest
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "67bcf2690af45a151acde010",
+  "timestamp": "2026-02-24T09:21:01",
+  "snapshotType": "PRE_CACHE",
+  "totalMethodsMonitored": 24,
+  "totalExecutions": 900,
+  "totalFailures": 2,
+  "overallAverageExecutionTime": 41.82,
+  "overallSuccessRate": 99.78,
+  "methodMetrics": []
+}
+```
+
+---
+
+### GET `/metrics/performance/postcache/latest`
+
+Get latest POST_CACHE snapshot.
+
+**Request:**
+
+```
+GET /api/metrics/performance/postcache/latest
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "67bcf2690af45a151acde011",
+  "timestamp": "2026-02-24T09:22:10",
+  "snapshotType": "POST_CACHE",
+  "totalMethodsMonitored": 24,
+  "totalExecutions": 920,
+  "totalFailures": 1,
+  "overallAverageExecutionTime": 27.16,
+  "overallSuccessRate": 99.89,
+  "methodMetrics": []
+}
+```
+
+---
+
+### GET `/metrics/performance/baseline/history`
+
+Get PRE_CACHE snapshot history.
+
+**Request:**
+
+```
+GET /api/metrics/performance/baseline/history?limit=10
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "67bcf2690af45a151acde010",
+    "timestamp": "2026-02-24T09:21:01",
+    "snapshotType": "PRE_CACHE",
+    "totalMethodsMonitored": 24,
+    "totalExecutions": 900,
+    "totalFailures": 2,
+    "overallAverageExecutionTime": 41.82,
+    "overallSuccessRate": 99.78,
+    "methodMetrics": []
+  }
+]
+```
+
+---
+
+### GET `/metrics/performance/postcache/history`
+
+Get POST_CACHE snapshot history.
+
+**Request:**
+
+```
+GET /api/metrics/performance/postcache/history?limit=10
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "67bcf2690af45a151acde011",
+    "timestamp": "2026-02-24T09:22:10",
+    "snapshotType": "POST_CACHE",
+    "totalMethodsMonitored": 24,
+    "totalExecutions": 920,
+    "totalFailures": 1,
+    "overallAverageExecutionTime": 27.16,
+    "overallSuccessRate": 99.89,
+    "methodMetrics": []
+  }
+]
+```
+
+---
+
+### GET `/metrics/performance/comparison/pre-cache-files`
+
+List available pre-cache metrics files for file-based comparison.
+
+**Request:**
+
+```
+GET /api/metrics/performance/comparison/pre-cache-files
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  "20260127-173530-performance-summary.log",
+  "20260126-160120-performance-summary.log"
+]
+```
+
+---
+
+### GET `/metrics/performance/comparison/{fileName}`
+
+Compare current metrics with selected pre-cache file.
+
+**Request:**
+
+```
+GET /api/metrics/performance/comparison/20260127-173530-performance-summary.log
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "preCacheFile": "20260127-173530-performance-summary.log",
+  "postCacheTimestamp": "2026-02-24T10:24:00",
+  "methodComparisons": [],
+  "summary": {
+    "methodsCompared": 15,
+    "methodsImproved": 12,
+    "methodsDegraded": 2,
+    "methodsUnchanged": 1,
+    "overallAvgImprovementPercent": "28.73%",
+    "bestImprovedMethod": "PostService.getAllPosts(..)",
+    "bestImprovementPercent": "46.55%",
+    "worstMethod": "CommentService.getAllCommentsByPostId(..)",
+    "worstChangePercent": "-8.21%"
+  },
+  "timestamp": "2026-02-24T10:24:00"
+}
+```
+
+---
+
+### GET `/metrics/performance/comparison`
+
+Compare current metrics with latest pre-cache file.
+
+**Request:**
+
+```
+GET /api/metrics/performance/comparison
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "preCacheFile": "20260127-173530-performance-summary.log",
+  "postCacheTimestamp": "2026-02-24T10:24:20",
+  "methodComparisons": [],
+  "summary": {
+    "methodsCompared": 15,
+    "methodsImproved": 12,
+    "methodsDegraded": 2,
+    "methodsUnchanged": 1,
+    "overallAvgImprovementPercent": "28.73%",
+    "bestImprovedMethod": "PostService.getAllPosts(..)",
+    "bestImprovementPercent": "46.55%",
+    "worstMethod": "CommentService.getAllCommentsByPostId(..)",
+    "worstChangePercent": "-8.21%"
+  },
+  "timestamp": "2026-02-24T10:24:20"
+}
+```
+
+---
+
+### GET `/metrics/performance/comparison/database/{preCacheId}/{postCacheId}`
+
+Compare two specific snapshots by id.
+
+**Request:**
+
+```
+GET /api/metrics/performance/comparison/database/67bcf2690af45a151acde010/67bcf2690af45a151acde011
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "preCacheFile": "Database: PRE_CACHE(67bcf2690af45a151acde010) @ 2026-02-24T09:21:01",
+  "postCacheTimestamp": "2026-02-24T09:22:10",
+  "methodComparisons": [],
+  "summary": {
+    "methodsCompared": 18,
+    "methodsImproved": 14,
+    "methodsDegraded": 2,
+    "methodsUnchanged": 2,
+    "overallAvgImprovementPercent": "31.42%",
+    "bestImprovedMethod": "PostService.getAllPosts(..)",
+    "bestImprovementPercent": "46.55%",
+    "worstMethod": "CommentService.getAllCommentsByPostId(..)",
+    "worstChangePercent": "-8.21%"
+  },
+  "timestamp": "2026-02-24T10:24:45"
+}
+```
+
+---
+
+### POST `/metrics/performance/cache/save`
+
+Persist cache metrics snapshot.
+
+**Request:**
+
+```
+POST /api/metrics/performance/cache/save?snapshotType=MANUAL
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "id": "67bcf2690af45a151acde101",
+  "timestamp": "2026-02-24T10:25:00",
+  "snapshotType": "MANUAL",
+  "totalCaches": 3,
+  "totalHits": 3400,
+  "totalMisses": 260,
+  "totalRequests": 3660,
+  "overallHitRate": 92.9,
+  "totalPuts": 260,
+  "totalEvictions": 17,
+  "bestPerformingCacheName": "posts",
+  "bestPerformingCacheHitRate": 89.55,
+  "worstPerformingCacheName": "comments",
+  "worstPerformingCacheHitRate": 81.22,
+  "cacheMetrics": []
+}
+```
+
+---
+
+### POST `/metrics/performance/save-all`
+
+Persist performance and cache snapshots asynchronously.
+
+**Request:**
+
+```
+POST /api/metrics/performance/save-all?snapshotType=MANUAL
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "status": "success",
+  "message": "All metrics saved to database"
+}
+```
+
+---
+
+### GET `/metrics/performance/cache/history`
+
+Get historical cache snapshots.
+
+**Request:**
+
+```
+GET /api/metrics/performance/cache/history?limit=5
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+[
+  {
+    "id": "67bcf2690af45a151acde101",
+    "timestamp": "2026-02-24T10:25:00",
+    "snapshotType": "MANUAL",
+    "totalCaches": 3,
+    "totalHits": 3400,
+    "totalMisses": 260,
+    "totalRequests": 3660,
+    "overallHitRate": 92.9,
+    "totalPuts": 260,
+    "totalEvictions": 17,
+    "bestPerformingCacheName": "posts",
+    "bestPerformingCacheHitRate": 89.55,
+    "worstPerformingCacheName": "comments",
+    "worstPerformingCacheHitRate": 81.22,
+    "cacheMetrics": []
+  }
+]
+```
+
+---
+
+### POST `/metrics/performance/simulation/run`
+
+Run full cache simulation.
+
+**Request:**
+
+```
+POST /api/metrics/performance/simulation/run
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "summary": "Cache performance simulation complete.",
+  "results": {
+    "getAllPosts": {
+      "preCacheAvgMs": 58,
+      "postCacheAvgMs": 29,
+      "improvementPercent": 50.0
+    }
+  }
+}
+```
+
+---
+
+### POST `/metrics/performance/simulation/getAllPosts`
+
+Run simulation for `getAllPosts`.
+
+**Request:**
+
+```
+POST /api/metrics/performance/simulation/getAllPosts
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "method": "getAllPosts",
+  "preCacheAvgMs": 58,
+  "postCacheAvgMs": 29,
+  "improvementPercent": 50.0
+}
+```
+
+---
+
+### POST `/metrics/performance/simulation/getPostById/{postId}`
+
+Run simulation for `getPostById`.
+
+**Request:**
+
+```
+POST /api/metrics/performance/simulation/getPostById/1
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "method": "getPostById",
+  "resourceId": 1,
+  "preCacheAvgMs": 42,
+  "postCacheAvgMs": 17,
+  "improvementPercent": 59.52
+}
+```
+
+---
+
+### POST `/metrics/performance/simulation/getCommentsByPostId/{postId}`
+
+Run simulation for `getCommentsByPostId`.
+
+**Request:**
+
+```
+POST /api/metrics/performance/simulation/getCommentsByPostId/1
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "method": "getCommentsByPostId",
+  "resourceId": 1,
+  "preCacheAvgMs": 36,
+  "postCacheAvgMs": 15,
+  "improvementPercent": 58.33
+}
+```
+
+---
+
+### POST `/metrics/performance/simulation/getPopularTags`
+
+Run simulation for `getPopularTags`.
+
+**Request:**
+
+```
+POST /api/metrics/performance/simulation/getPopularTags
+Authorization: Bearer <admin-token>
+```
+
+**Response:** `200 OK`
+
+```json
+{
+  "method": "getPopularTags",
+  "preCacheAvgMs": 21,
+  "postCacheAvgMs": 9,
+  "improvementPercent": 57.14
 }
 ```
 
@@ -1321,7 +2282,3 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 | 403  | Forbidden (insufficient permissions) |
 | 404  | Not Found                            |
 | 500  | Internal Server Error                |
-
-```
-This updated documentation now includes complete request/response JSON examples and proper `Authorization: Bearer` headers for all authenticated endpoints. Would you like me to add anything else?
-```

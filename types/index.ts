@@ -59,17 +59,14 @@ export interface RegisterRequest {
 export interface Post {
   id: number;
   title: string;
-  body?: string;
-  authorId?: string;
-  authorName?: string; // For list/detail endpoints
-  author?: string | { username: string }; // For profile endpoint or GraphQL
-  tags?: string[] | { name: string }[]; // Support both formats
-  createdAt?: string; // For list/detail endpoints
-  postedAt?: string; // For profile endpoint
-  updatedAt?: string; // For GraphQL
-  lastUpdated?: string;
-  commentsCount?: number; // For list/detail endpoints
-  totalComments?: number; // For profile endpoint
+  body: string;
+  author: string;
+  authorId: string;
+  tags: string[];
+  postedAt: string;
+  lastUpdated: string;
+  totalComments: number;
+  imageUrls?: string[];
 }
 
 export interface CreatePostRequest {
@@ -199,6 +196,37 @@ export interface CacheSummary {
   timestamp: string;
 }
 
+export interface RuntimeEndpointMetric {
+  endpoint: string;
+  method?: string;
+  requestCount?: number;
+  totalRequests?: number;
+  errorCount?: number;
+  errorRequests?: number;
+  errorRatePercent: number;
+  averageLatencyMs: number;
+  minLatencyMs: number;
+  maxLatencyMs: number;
+  throughputReqPerSec: number;
+}
+
+export interface RuntimeMetricsResponse {
+  timestamp: string;
+  uptimeSeconds: number;
+  totalRequests: number;
+  totalErrors: number;
+  errorRatePercent: number;
+  averageLatencyMs: number;
+  minLatencyMs: number;
+  maxLatencyMs: number;
+  throughputReqPerSec: number;
+  throughputLast60SecondsReqPerSec: number;
+  usedMemoryMb: number;
+  committedMemoryMb: number;
+  maxMemoryMb: number;
+  endpoints: RuntimeEndpointMetric[];
+}
+
 // Performance History types
 export interface PerformanceSnapshot {
   id: string;
@@ -233,21 +261,25 @@ export interface CacheSnapshot {
 // Comparison types
 export interface PreCacheMetric {
   totalCalls: number;
-  avgExecutionTime: number;
+  avgExecutionTime?: number;
+  averageExecutionTime?: number;
   minExecutionTime: number;
   maxExecutionTime: number;
 }
 
 export interface PostCacheMetric {
   totalCalls: number;
-  avgExecutionTime: number;
+  avgExecutionTime?: number;
+  averageExecutionTime?: number;
   minExecutionTime: number;
   maxExecutionTime: number;
 }
 
 export interface MetricImprovement {
-  avgTimeReduction: number;
+  avgTimeReduction?: number;
+  averageTimeReduction?: number;
   avgTimeReductionPercent: string;
+  averageTimeReductionPercent?: string;
   minTimeReduction: number;
   maxTimeReduction: number;
   improved: boolean;
@@ -280,61 +312,11 @@ export interface PerformanceComparison {
   timestamp: string;
 }
 
-// Security Audit types
-export type SecurityEventType =
-  | 'SIGN_IN_SUCCESS'
-  | 'SIGN_IN_FAILURE'
-  | 'REGISTRATION_SUCCESS'
-  | 'REGISTRATION_FAILURE'
-  | 'TOKEN_VALIDATION_FAILURE'
-  | 'ACCESS_DENIED'
-  | 'RESTRICTED_ENDPOINT_ACCESS'
-  | 'BRUTE_FORCE_SUSPECTED'
-  | 'TOKEN_REFRESH'
-  | 'SIGN_OUT';
-
-export interface SecurityEvent {
-  id: string;
-  eventType: SecurityEventType;
-  username?: string;
-  email?: string;
-  ipAddress: string;
-  userAgent: string;
-  endpoint?: string;
-  method?: string;
-  details: string;
-  success: boolean;
-  timestamp: string;
-}
-
-export interface SecurityStats {
-  sign_in_success_24h: number;
-  sign_in_failure_24h: number;
-  token_validation_failure_24h: number;
-  access_denied_24h: number;
-  restricted_endpoint_access_24h: number;
-  brute_force_suspected_24h: number;
-  recentBruteForceAttempts: number;
-  trackedFailedIps: number;
-  trackedFailedEmails: number;
-}
-
-export interface BlockedStatus {
-  ipAddress: string;
-  blocked: boolean;
-}
-
 // Admin types
-export interface SessionStats {
-  activeSessions: number;
-  revokedTokens: number;
-}
-
 export interface AdminStats {
   totalUsers: number;
   totalPosts: number;
   totalComments: number;
-  sessionStats?: SessionStats;
 }
 
 export interface AdminUser {
@@ -446,4 +428,157 @@ export type SimulationMethodType =
   | 'getCommentsByPostId'
   | 'getPopularTags'
   | 'getAllComments';
+
+// --- Feed types ---
+
+export type FeedSource = 'RECENT' | 'TRENDING' | 'POPULAR' | 'RECOMMENDED';
+export type TrendDirection = 'UP' | 'DOWN' | 'STABLE';
+
+export interface FeedPost {
+  postId: number;
+  title: string;
+  bodyPreview: string;
+  author: string;
+  authorId: string;
+  tags: string[];
+  postedAt: string;
+  totalComments: number;
+  trendingScore: number;
+  viewCount: number;
+  feedSource: FeedSource;
+}
+
+export interface FeedResponse {
+  recentPosts: FeedPost[];
+  trendingPosts: FeedPost[];
+  popularPosts: FeedPost[];
+  recommendedPosts: FeedPost[];
+  generatedAt: string;
+  generationTimeMs: number;
+  totalItemsAggregated: number;
+}
+
+export interface TrendingPost {
+  postId: number;
+  title: string;
+  currentScore: number;
+  previousScore: number;
+  scoreChange: number;
+  commentCount: number;
+  viewCount: number;
+  velocityFactor: number;
+  lastUpdated: string;
+  rank: number;
+  previousRank: number;
+  trend: TrendDirection;
+}
+
+export interface TrendingLiveResponse {
+  trendingPosts: TrendingPost[];
+  snapshotTime: string;
+  calculationTimeMs: number;
+  totalTrackedPosts: number;
+  liveUpdate: boolean;
+}
+
+// --- Moderation types ---
+
+export type ModerationAction = 'APPROVE' | 'REJECT' | 'DELETE';
+export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED' | 'FAILED';
+
+export interface BulkModerationRequest {
+  commentIds: string[];
+  action: ModerationAction;
+  reason?: string;
+}
+
+export interface ModerationTask {
+  taskId: string;
+  status: TaskStatus;
+  progress: number;
+  total: number;
+  completed: number;
+  failed: number;
+  createdAt: string;
+  updatedAt: string;
+}
+
+// --- Notification types ---
+
+export type NotificationType =
+  | 'NEW_COMMENT'
+  | 'POST_PUBLISHED'
+  | 'MODERATION_ACTION'
+  | 'WELCOME_EMAIL'
+  | 'PASSWORD_RESET'
+  | 'WEEKLY_DIGEST';
+
+export interface NotificationRequest {
+  recipientEmail: string;
+  recipientName: string;
+  type: NotificationType;
+  subject: string;
+  body: string;
+}
+
+export interface Notification {
+  id: string;
+  recipientEmail: string;
+  type: string;
+  subject: string;
+  status: 'PENDING' | 'PROCESSING' | 'SENT' | 'FAILED' | 'RETRYING';
+  retryCount: number;
+  lastError: string | null;
+  createdAt: string;
+  processedAt: string | null;
+}
+
+export interface NotificationStats {
+  totalPending: number;
+  totalProcessing: number;
+  totalSent: number;
+  totalFailed: number;
+  totalRetrying: number;
+  averageProcessingTimeMs: number;
+  processedLast24Hours: number;
+}
+
+// --- Report Export types ---
+
+export type ReportType =
+  | 'POST_ANALYTICS'
+  | 'USER_ACTIVITY'
+  | 'COMMENT_SUMMARY'
+  | 'MODERATION_LOG'
+  | 'FULL_PLATFORM';
+
+export interface ReportExportRequest {
+  reportType: ReportType;
+  filters?: Record<string, string>;
+}
+
+export interface ReportExport {
+  reportId: string;
+  reportType: ReportType;
+  status: TaskStatus;
+  createdAt: string;
+  completedAt?: string;
+  downloadUrl?: string;
+  error?: string;
+}
+
+// --- Image types ---
+
+export type ImageStatus = 'PENDING' | 'PROCESSING' | 'COMPLETED' | 'FAILED';
+
+export interface ImageUpload {
+  imageId: string;
+  postId: number;
+  status: ImageStatus;
+  url?: string;
+  filename?: string;
+  createdAt: string;
+  updatedAt: string;
+  error?: string;
+}
 

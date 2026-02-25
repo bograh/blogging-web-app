@@ -3,6 +3,7 @@
 import React from "react"
 
 import { useEffect, useState } from "react";
+import Link from "next/link";
 import { api } from "@/lib/api";
 import { AuthProvider } from "@/contexts/auth-context";
 import { Header } from "@/components/header";
@@ -17,7 +18,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Search, Loader2, X, ChevronDown } from "lucide-react";
+import { Search, Loader2, X, ChevronDown, Rss } from "lucide-react";
 import type { Post, Tag } from "@/types";
 
 function PostsPage() {
@@ -108,11 +109,19 @@ function PostsPage() {
       <Header />
 
       <main className="mx-auto max-w-6xl px-4 py-12">
-        <div className="mb-10">
-          <h1 className="text-3xl font-bold text-foreground">All Posts</h1>
-          <p className="mt-2 text-muted-foreground">
-            Browse all articles from our community
-          </p>
+        <div className="mb-10 flex items-start justify-between gap-4">
+          <div>
+            <h1 className="text-3xl font-bold text-foreground">All Posts</h1>
+            <p className="mt-2 text-muted-foreground">
+              Browse all articles from our community
+            </p>
+          </div>
+          <Link href="/feed">
+            <Button variant="outline" className="shrink-0 gap-2">
+              <Rss className="h-4 w-4" />
+              View Feed
+            </Button>
+          </Link>
         </div>
 
         {/* Filters */}

@@ -13,9 +13,9 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
-import { ArrowLeft, Loader2, X, Plus } from "lucide-react";
+import { ArrowLeft, Loader2, X, Plus, ImageIcon, Trash2, Upload } from "lucide-react";
 import { toast } from "sonner";
-import type { Post } from "@/types";
+import type { Post, ImageUpload } from "@/types";
 
 function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
   const { id } = use(params);
@@ -29,6 +29,10 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
   const [content, setContent] = useState("");
   const [tags, setTags] = useState<string[]>([]);
   const [tagInput, setTagInput] = useState("");
+  const [imageFile, setImageFile] = useState<File | null>(null);
+  const [imagePreview, setImagePreview] = useState<string | null>(null);
+  const [isUploadingImage, setIsUploadingImage] = useState(false);
+  const [existingImages, setExistingImages] = useState<ImageUpload[]>([]);
 
   useEffect(() => {
     loadPost();
@@ -37,15 +41,20 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
 
   const loadPost = async () => {
     try {
-      const response = await api.posts.getById(Number(id));
-      if (response.data) {
-        setPost(response.data);
-        setTitle(response.data.title);
-        setContent(response.data.body || "");
-        const tagNames = (response.data.tags || []).map((tag) =>
-          typeof tag === "string" ? tag : tag.name
-        );
+      const [postRes, imagesRes] = await Promise.allSettled([
+        api.posts.getById(Number(id)),
+        api.images.getCompletedByPost(Number(id)),
+      ]);
+      if (postRes.status === "fulfilled" && postRes.value.data) {
+        const data = postRes.value.data;
+        setPost(data);
+        setTitle(data.title);
+        setContent(data.body || "");
+        const tagNames = data.tags ?? [];
         setTags(tagNames);
+      }
+      if (imagesRes.status === "fulfilled" && imagesRes.value.data) {
+        setExistingImages(imagesRes.value.data);
       }
     } catch (error) {
       console.log("Error loading post:", error);
@@ -60,6 +69,47 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
     if (tag && !tags.includes(tag)) {
       setTags((prev) => [...prev, tag]);
       setTagInput("");
+    }
+  };
+
+  const handleImageChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0] ?? null;
+    setImageFile(file);
+    if (file) {
+      setImagePreview(URL.createObjectURL(file));
+    } else {
+      setImagePreview(null);
+    }
+  };
+
+  const handleUploadImage = async () => {
+    if (!imageFile) return;
+    setIsUploadingImage(true);
+    try {
+      await api.images.upload(Number(id), imageFile);
+      toast.success("Image upload started. It will appear once processed.");
+      setImageFile(null);
+      if (imagePreview) URL.revokeObjectURL(imagePreview);
+      setImagePreview(null);
+      const res = await api.images.getCompletedByPost(Number(id)).catch(() => null);
+      if (res?.data) setExistingImages(res.data);
+    } catch (err: unknown) {
+      const msg = err && typeof err === "object" && "errorMessage" in err
+        ? String((err as { errorMessage: unknown }).errorMessage)
+        : "Image upload failed";
+      toast.error(msg);
+    } finally {
+      setIsUploadingImage(false);
+    }
+  };
+
+  const handleDeleteImage = async (imageId: string) => {
+    try {
+      await api.images.delete(imageId);
+      setExistingImages((prev) => prev.filter((img) => img.imageId !== imageId));
+      toast.success("Image deleted");
+    } catch {
+      toast.error("Failed to delete image");
     }
   };
 
@@ -222,6 +272,72 @@ function EditPostPage({ params }: { params: Promise<{ id: string }> }) {
                 ))}
               </div>
             )}
+          </div>
+
+          {/* Image Management */}
+          <div className="space-y-2">
+            <label className="text-sm font-medium leading-none">Images</label>
+
+            {existingImages.length > 0 && (
+              <div className="grid gap-3 sm:grid-cols-2">
+                {existingImages.map((img) => (
+                  <div key={img.imageId} className="group relative overflow-hidden rounded-lg border border-border">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    {img.url && <img src={img.url} alt="Post image" className="h-40 w-full object-cover" />}
+                    <button
+                      type="button"
+                      onClick={() => handleDeleteImage(img.imageId)}
+                      className="absolute right-2 top-2 rounded-full bg-background/80 p-1 text-destructive opacity-0 shadow transition group-hover:opacity-100 hover:bg-background"
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+              {imagePreview ? (
+                <div className="relative flex-1 overflow-hidden rounded-lg border border-border">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={imagePreview} alt="New upload preview" className="h-32 w-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => { setImageFile(null); if (imagePreview) URL.revokeObjectURL(imagePreview); setImagePreview(null); }}
+                    className="absolute right-2 top-2 rounded-full bg-background/80 p-1 shadow hover:bg-background"
+                  >
+                    <X className="h-4 w-4" />
+                  </button>
+                </div>
+              ) : (
+                <label className="flex flex-1 cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-border bg-muted/30 px-4 py-6 transition hover:bg-muted/50">
+                  <ImageIcon className="h-5 w-5 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">Add image (JPEG, PNG, GIF, WebP)</span>
+                  <input
+                    type="file"
+                    accept="image/jpeg,image/png,image/gif,image/webp"
+                    className="sr-only"
+                    onChange={handleImageChange}
+                  />
+                </label>
+              )}
+
+              {imageFile && (
+                <Button
+                  type="button"
+                  variant="secondary"
+                  onClick={handleUploadImage}
+                  disabled={isUploadingImage}
+                  className="shrink-0"
+                >
+                  {isUploadingImage ? (
+                    <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Uploading...</>
+                  ) : (
+                    <><Upload className="mr-2 h-4 w-4" />Upload Image</>
+                  )}
+                </Button>
+              )}
+            </div>
           </div>
 
           {/* Content */}

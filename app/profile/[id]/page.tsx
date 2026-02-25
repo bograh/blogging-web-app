@@ -55,12 +55,12 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
               id: post.id,
               title: post.title,
               body: post.body,
+              author: post.author,
               authorId: post.authorId,
-              authorName: post.author,
               tags: post.tags,
-              createdAt: post.postedAt,
+              postedAt: post.postedAt,
               lastUpdated: post.lastUpdated,
-              commentsCount: post.totalComments,
+              totalComments: post.totalComments,
             }));
             setPosts(convertedPosts);
           } else {
@@ -82,7 +82,7 @@ function ProfilePage({ params }: { params: Promise<{ id: string }> }) {
           // Create a basic profile from posts data
           if (postsResponse.data.content.length > 0) {
             const firstPost = postsResponse.data.content[0];
-            const authorName = typeof firstPost.author === 'object' ? firstPost.author.username : firstPost.author || username;
+            const authorName = firstPost.author || username;
             setProfile({
               userId: firstPost.authorId || '',
               username: authorName,

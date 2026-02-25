@@ -14,6 +14,10 @@ import {
   ArrowLeft,
   Shield,
   Loader2,
+  ShieldAlert,
+  Bell,
+  Download,
+  Zap,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
@@ -38,11 +42,31 @@ const sidebarItems = [
     href: "/admin/comments",
     icon: MessageSquare,
   },
-  /*{
+  {
     title: "Metrics",
     href: "/admin/metrics",
     icon: BarChart3,
-  },*/
+  },
+  {
+    title: "Feed",
+    href: "/admin/feed",
+    icon: Zap,
+  },
+  {
+    title: "Moderation",
+    href: "/admin/moderation",
+    icon: ShieldAlert,
+  },
+  {
+    title: "Notifications",
+    href: "/admin/notifications",
+    icon: Bell,
+  },
+  {
+    title: "Reports",
+    href: "/admin/reports",
+    icon: Download,
+  },
 ];
 
 function AdminLayoutContent({ children }: { children: React.ReactNode }) {

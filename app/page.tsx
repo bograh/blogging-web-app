@@ -10,11 +10,13 @@ import { Header } from "@/components/header";
 import { PostCard } from "@/components/post-card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
-import { ArrowRight, Search, Loader2 } from "lucide-react";
-import type { Post } from "@/types";
+import { ArrowRight, Search, Loader2, Zap } from "lucide-react";
+import type { Post, FeedPost } from "@/types";
 
 function HomePage() {
   const [posts, setPosts] = useState<Post[]>([]);
+  const [popularPosts, setPopularPosts] = useState<Post[]>([]);
+  const [trendingPosts, setTrendingPosts] = useState<Post[]>([]);
   const [isLoading, setIsLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
 
@@ -25,16 +27,45 @@ function HomePage() {
   const loadPosts = async (search?: string) => {
     setIsLoading(true);
     try {
-      const response = await api.posts.getAll(0, 6, {
-        sort: "updatedAt",
-        order: "DESC",
-        search: search || undefined,
-      });
-      if (response.data) {
-        setPosts(response.data.content);
+      if (search) {
+        // When searching fall back to a targeted posts query
+        const [searchResult, popularResult, trendingResult] = await Promise.allSettled([
+          api.posts.getAll(0, 6, { sort: "updatedAt", order: "DESC", search }),
+          api.posts.getPopular(3),
+          api.posts.getTrending(3),
+        ]);
+        setPosts(searchResult.status === "fulfilled" ? (searchResult.value.data?.content ?? []) : []);
+        setPopularPosts(popularResult.status === "fulfilled" ? (popularResult.value.data ?? []) : []);
+        setTrendingPosts(trendingResult.status === "fulfilled" ? (trendingResult.value.data ?? []) : []);
+      } else {
+        // Use the aggregated feed endpoint for the initial load
+        const toPost = (fp: import('@/types').FeedPost) => ({
+          id: fp.postId, title: fp.title, body: fp.bodyPreview,
+          author: fp.author, authorId: fp.authorId, tags: fp.tags,
+          postedAt: fp.postedAt, lastUpdated: '', totalComments: fp.totalComments,
+        });
+        const feedResult = await api.feed.get(6).catch(() => null);
+        if (feedResult?.data) {
+          setPosts((feedResult.data.recentPosts ?? []).map(toPost));
+          setPopularPosts((feedResult.data.popularPosts ?? []).slice(0, 3).map(toPost));
+          setTrendingPosts((feedResult.data.trendingPosts ?? []).slice(0, 3).map(toPost));
+        } else {
+          // Graceful fallback if feed endpoint is unavailable
+          const [latestResult, popularResult, trendingResult] = await Promise.allSettled([
+            api.posts.getAll(0, 6, { sort: "updatedAt", order: "DESC" }),
+            api.posts.getPopular(3),
+            api.posts.getTrending(3),
+          ]);
+          setPosts(latestResult.status === "fulfilled" ? (latestResult.value.data?.content ?? []) : []);
+          setPopularPosts(popularResult.status === "fulfilled" ? (popularResult.value.data ?? []) : []);
+          setTrendingPosts(trendingResult.status === "fulfilled" ? (trendingResult.value.data ?? []) : []);
+        }
       }
     } catch (error) {
       console.log("Error loading posts:", error);
+      setPosts([]);
+      setPopularPosts([]);
+      setTrendingPosts([]);
     } finally {
       setIsLoading(false);
     }
@@ -123,6 +154,72 @@ function HomePage() {
               <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
                 {posts.map((post) => (
                   <PostCard key={post.id} post={post} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Popular Posts */}
+        <section className="pb-16">
+          <div className="mx-auto max-w-6xl px-4">
+            <div className="mb-10 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Popular Posts</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Most engaged posts right now
+                </p>
+              </div>
+            </div>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : popularPosts.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border py-10 text-center">
+                <p className="text-muted-foreground">No popular posts available.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {popularPosts.map((post) => (
+                  <PostCard key={`popular-${post.id}`} post={post} />
+                ))}
+              </div>
+            )}
+          </div>
+        </section>
+
+        {/* Trending Posts */}
+        <section className="pb-16">
+          <div className="mx-auto max-w-6xl px-4">
+            <div className="mb-10 flex items-center justify-between">
+              <div>
+                <h2 className="text-2xl font-bold text-foreground">Trending Posts</h2>
+                <p className="mt-1 text-sm text-muted-foreground">
+                  Posts with rising activity
+                </p>
+              </div>
+              <Link href="/feed">
+                <Button variant="ghost" className="gap-2">
+                  Full Feed
+                  <Zap className="h-4 w-4" />
+                </Button>
+              </Link>
+            </div>
+
+            {isLoading ? (
+              <div className="flex items-center justify-center py-20">
+                <Loader2 className="h-8 w-8 animate-spin text-primary" />
+              </div>
+            ) : trendingPosts.length === 0 ? (
+              <div className="rounded-xl border border-dashed border-border py-10 text-center">
+                <p className="text-muted-foreground">No trending posts available.</p>
+              </div>
+            ) : (
+              <div className="grid gap-6 md:grid-cols-2 lg:grid-cols-3">
+                {trendingPosts.map((post) => (
+                  <PostCard key={`trending-${post.id}`} post={post} />
                 ))}
               </div>
             )}

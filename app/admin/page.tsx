@@ -8,13 +8,13 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import {
-  Users, FileText, MessageSquare, Activity, Database, Shield,
-  TrendingUp, TrendingDown, Minus, AlertTriangle, CheckCircle, XCircle,
+  Users, FileText, MessageSquare, Activity, Database,
+  TrendingUp, TrendingDown, Minus, CheckCircle, XCircle,
   PlayCircle, Zap, Timer, Gauge
 } from "lucide-react";
 import type {
   AdminStats, MetricsResponse, MetricsSummary, CacheMetricsResponse,
-  CacheSummary, SecurityStats, SecurityEvent, MethodMetric, CacheMetric,
+  CacheSummary, MethodMetric, CacheMetric,
   PerformanceComparison, PerformanceSnapshot, SimulationResult,
   CachedSimulationMethodResult, UncachedSimulationMethodResult
 } from "@/types";
@@ -26,8 +26,6 @@ export default function AdminDashboard() {
   const [performanceSummary, setPerformanceSummary] = useState<MetricsSummary | null>(null);
   const [cacheMetrics, setCacheMetrics] = useState<CacheMetricsResponse | null>(null);
   const [cacheSummary, setCacheSummary] = useState<CacheSummary | null>(null);
-  const [securityStats, setSecurityStats] = useState<SecurityStats | null>(null);
-  const [securityEvents, setSecurityEvents] = useState<SecurityEvent[]>([]);
   const [comparison, setComparison] = useState<PerformanceComparison | null>(null);
   const [latestBaseline, setLatestBaseline] = useState<PerformanceSnapshot | null>(null);
   const [latestPostCache, setLatestPostCache] = useState<PerformanceSnapshot | null>(null);
@@ -47,8 +45,6 @@ export default function AdminDashboard() {
       loadPerformanceData();
     } else if (activeTab === "cache" && !cacheMetrics) {
       loadCacheData();
-    } else if (activeTab === "security" && !securityStats) {
-      loadSecurityData();
     } else if (activeTab === "comparison" && !comparison) {
       loadComparisonData();
     }
@@ -92,19 +88,6 @@ export default function AdminDashboard() {
       if (summaryRes.data) setCacheSummary(summaryRes.data);
     } catch (err: any) {
       toast.error("Failed to load cache metrics");
-    }
-  };
-
-  const loadSecurityData = async () => {
-    try {
-      const [statsRes, eventsRes] = await Promise.all([
-        api.security.getStats(),
-        api.security.getEvents(0, 10)
-      ]);
-      if (statsRes.data) setSecurityStats(statsRes.data);
-      if (eventsRes.data?.content) setSecurityEvents(eventsRes.data.content);
-    } catch (err: any) {
-      toast.error("Failed to load security audit data");
     }
   };
 
@@ -202,16 +185,6 @@ export default function AdminDashboard() {
     }
   };
 
-  const handleClearSecurityTracking = async () => {
-    try {
-      await api.security.clearTracking();
-      toast.success("Security tracking cleared successfully");
-      loadSecurityData();
-    } catch (err: any) {
-      toast.error("Failed to clear security tracking");
-    }
-  };
-
   const handleRunSimulation = async () => {
     setIsSimulationRunning(true);
     try {
@@ -254,23 +227,6 @@ export default function AdminDashboard() {
     },
   ];
 
-  const sessionCards = stats?.sessionStats ? [
-    {
-      title: "Active Sessions",
-      value: stats.sessionStats.activeSessions,
-      description: "Currently active user sessions",
-      color: "text-orange-500",
-      bgColor: "bg-orange-500/10",
-    },
-    {
-      title: "Revoked Tokens",
-      value: stats.sessionStats.revokedTokens,
-      description: "Total revoked access tokens",
-      color: "text-red-500",
-      bgColor: "bg-red-500/10",
-    },
-  ] : [];
-
   const getMetricsArray = (): MethodMetric[] => {
     if (!performanceMetrics?.metrics) return [];
     if (Array.isArray(performanceMetrics.metrics)) {
@@ -292,30 +248,12 @@ export default function AdminDashboard() {
     return rate;
   };
 
-  const getEventIcon = (eventType: string, success: boolean) => {
-    if (eventType.includes('BRUTE_FORCE') || eventType.includes('ACCESS_DENIED')) {
-      return <AlertTriangle className="h-4 w-4 text-red-500" />;
-    }
-    if (success) {
-      return <CheckCircle className="h-4 w-4 text-green-500" />;
-    }
-    return <XCircle className="h-4 w-4 text-red-500" />;
-  };
-
-  const getEventBadgeColor = (eventType: string): string => {
-    if (eventType.includes('SUCCESS')) return 'bg-green-500/10 text-green-500';
-    if (eventType.includes('FAILURE')) return 'bg-red-500/10 text-red-500';
-    if (eventType.includes('BRUTE_FORCE')) return 'bg-red-500/10 text-red-500';
-    if (eventType.includes('ACCESS_DENIED')) return 'bg-orange-500/10 text-orange-500';
-    return 'bg-blue-500/10 text-blue-500';
-  };
-
   return (
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">Admin Dashboard</h1>
         <p className="text-muted-foreground">
-          Monitor platform statistics, performance, and security
+          Monitor platform statistics and performance
         </p>
       </div>
 
@@ -326,13 +264,12 @@ export default function AdminDashboard() {
       )}
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
-        <TabsList className="grid w-full grid-cols-6">
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="dashboard">Dashboard</TabsTrigger>
           <TabsTrigger value="performance">Performance</TabsTrigger>
           <TabsTrigger value="cache">Cache</TabsTrigger>
           <TabsTrigger value="simulation">Simulation</TabsTrigger>
           <TabsTrigger value="comparison">Comparison</TabsTrigger>
-          <TabsTrigger value="security">Security</TabsTrigger>
         </TabsList>
 
         <TabsContent value="dashboard" className="space-y-6">
@@ -364,40 +301,6 @@ export default function AdminDashboard() {
               </Card>
             ))}
           </div>
-
-          {stats?.sessionStats && (
-            <div>
-              <h2 className="mb-4 text-xl font-semibold text-foreground">Session Statistics</h2>
-              <div className="grid gap-4 md:grid-cols-2">
-                {sessionCards.map((stat) => (
-                  <Card key={stat.title}>
-                    <CardHeader className="flex flex-row items-center justify-between pb-2">
-                      <CardTitle className="text-sm font-medium text-muted-foreground">
-                        {stat.title}
-                      </CardTitle>
-                      <div className={`rounded-md p-2 ${stat.bgColor}`}>
-                        <div className={`h-3 w-3 rounded-full ${stat.color}`} />
-                      </div>
-                    </CardHeader>
-                    <CardContent>
-                      {isLoading ? (
-                        <Skeleton className="h-8 w-20" />
-                      ) : (
-                        <>
-                          <div className="text-2xl font-bold text-foreground">
-                            {stat.value.toLocaleString()}
-                          </div>
-                          <p className="text-xs text-muted-foreground">
-                            {stat.description}
-                          </p>
-                        </>
-                      )}
-                    </CardContent>
-                  </Card>
-                ))}
-              </div>
-            </div>
-          )}
 
           <div className="grid gap-4 md:grid-cols-2">
             <Card>
@@ -738,180 +641,6 @@ export default function AdminDashboard() {
                 {getCacheArray().length === 0 && (
                   <div className="py-8 text-center text-muted-foreground">
                     No cache metrics available
-                  </div>
-                )}
-              </div>
-            </CardContent>
-          </Card>
-        </TabsContent>
-
-        <TabsContent value="security" className="space-y-6">
-          <div className="flex items-center justify-between">
-            <div>
-              <h2 className="text-2xl font-bold text-foreground">Security Audit</h2>
-              <p className="text-muted-foreground">Monitor security events and threats</p>
-            </div>
-            <Button variant="destructive" size="sm" onClick={handleClearSecurityTracking}>
-              Clear Tracking
-            </Button>
-          </div>
-
-          {securityStats && (
-            <>
-              <div className="grid gap-4 md:grid-cols-4">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Successful Sign-ins (24h)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <CheckCircle className="h-5 w-5 text-green-500" />
-                      <div className="text-2xl font-bold text-foreground">
-                        {securityStats.sign_in_success_24h}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Failed Sign-ins (24h)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <XCircle className="h-5 w-5 text-red-500" />
-                      <div className="text-2xl font-bold text-foreground">
-                        {securityStats.sign_in_failure_24h}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Access Denied (24h)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle className="h-5 w-5 text-orange-500" />
-                      <div className="text-2xl font-bold text-foreground">
-                        {securityStats.access_denied_24h}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Brute Force Suspected (24h)
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="flex items-center gap-2">
-                      <Shield className="h-5 w-5 text-red-500" />
-                      <div className="text-2xl font-bold text-foreground">
-                        {securityStats.brute_force_suspected_24h}
-                      </div>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              <div className="grid gap-4 md:grid-cols-3">
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Token Validation Failures
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-foreground">
-                      {securityStats.token_validation_failure_24h}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Tracked Failed IPs
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-foreground">
-                      {securityStats.trackedFailedIps}
-                    </div>
-                  </CardContent>
-                </Card>
-                <Card>
-                  <CardHeader className="pb-2">
-                    <CardTitle className="text-sm font-medium text-muted-foreground">
-                      Tracked Failed Emails
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    <div className="text-2xl font-bold text-foreground">
-                      {securityStats.trackedFailedEmails}
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-            </>
-          )}
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Recent Security Events</CardTitle>
-              <CardDescription>Latest 10 security audit logs</CardDescription>
-            </CardHeader>
-            <CardContent>
-              <div className="space-y-3">
-                {securityEvents.map((event) => (
-                  <div key={event.id} className="rounded-lg border border-border p-4">
-                    <div className="mb-2 flex items-start justify-between">
-                      <div className="flex items-center gap-2">
-                        {getEventIcon(event.eventType, event.success)}
-                        <div>
-                          <div className="flex items-center gap-2">
-                            <span className="font-medium text-foreground">
-                              {event.eventType.replace(/_/g, ' ')}
-                            </span>
-                            <Badge className={getEventBadgeColor(event.eventType)}>
-                              {event.eventType}
-                            </Badge>
-                          </div>
-                          <div className="text-sm text-muted-foreground">
-                            {event.email || event.username || 'Unknown user'}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right text-sm text-muted-foreground">
-                        {new Date(event.timestamp).toLocaleString()}
-                      </div>
-                    </div>
-                    <div className="text-sm text-foreground">{event.details}</div>
-                    <div className="mt-2 grid grid-cols-2 gap-4 text-sm">
-                      <div>
-                        <span className="text-muted-foreground">IP: </span>
-                        <span className="font-medium text-foreground">{event.ipAddress}</span>
-                      </div>
-                      {event.endpoint && (
-                        <div>
-                          <span className="text-muted-foreground">Endpoint: </span>
-                          <span className="font-medium text-foreground">
-                            {event.method} {event.endpoint}
-                          </span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-                {securityEvents.length === 0 && (
-                  <div className="py-8 text-center text-muted-foreground">
-                    No security events recorded
                   </div>
                 )}
               </div>

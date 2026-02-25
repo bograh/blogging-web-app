@@ -10,7 +10,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-import { PenLine, User, LogOut, Menu, X, BarChart3, Shield } from "lucide-react";
+import { PenLine, User, LogOut, Menu, X, BarChart3, Shield, Rss } from "lucide-react";
 import { useState } from "react";
 
 export function Header() {
@@ -42,6 +42,13 @@ export function Header() {
             className="text-sm text-muted-foreground transition-colors hover:text-foreground"
           >
             All Posts
+          </Link>
+          <Link
+            href="/feed"
+            className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+          >
+            <Rss className="h-3.5 w-3.5" />
+            Feed
           </Link>
           {user ? (
             <>
@@ -139,6 +146,14 @@ export function Header() {
               className="text-sm text-muted-foreground transition-colors hover:text-foreground"
             >
               All Posts
+            </Link>
+            <Link
+              href="/feed"
+              onClick={() => setMobileMenuOpen(false)}
+              className="flex items-center gap-1.5 text-sm text-muted-foreground transition-colors hover:text-foreground"
+            >
+              <Rss className="h-3.5 w-3.5" />
+              Feed
             </Link>
             {user ? (
               <>
